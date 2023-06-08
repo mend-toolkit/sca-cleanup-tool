@@ -91,14 +91,7 @@ def filter_projects_by_config(projects):
     projects_to_return = [project for project in projects if project["token"] not in CONFIG.excluded_project_tokens]
     if len(projects_to_return) == 0:
         return []
-    if CONFIG.analyzed_project_tag:
-        print("Filtering projects based on project tag:" + CONFIG.analyzed_project_tag )
-        projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] if CONFIG.tag_pair[1] in project["tags"][0].get(CONFIG.tag_pair[0], '')] 
-        print("Found {} projects matching tag".format(len(projects_to_return)))
-
-    #if CONFIG.analyzed_project_tag_regex_in_value:
-        #projects_to_return = [get_project_tag(project) for project in projects_to_return]
-        #return projects_to_return
+    
     if CONFIG.excluded_project_name_patterns:
         print("Filtering projects with name containing values {}".format(CONFIG.project_name_exclude_list))
         for patt in CONFIG.project_name_exclude_list:
@@ -113,6 +106,17 @@ def filter_projects_by_config(projects):
         print("Filtering projects older than: {}".format(archive_date))
         projects_to_return = [project for project in projects_to_return if archive_date.timestamp() > datetime.strptime(project["lastUpdatedDate"],'%Y-%m-%d %H:%M:%S %z').timestamp()]
         print("Found {} projects older than {}".format(len(projects_to_return), archive_date))
+    
+    if CONFIG.analyzed_project_tag:
+        print("Filtering projects based on project tag:" + CONFIG.analyzed_project_tag )
+        projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] if CONFIG.tag_pair[1] in project["tags"][0].get(CONFIG.tag_pair[0], '')] 
+        print("Found {} projects matching tag".format(len(projects_to_return)))
+    
+    #if CONFIG.analyzed_project_tag_regex_in_value:
+        # for k, v in p.get('tags')[0].get('tags').items():
+        #         if self.conf.analyzed_project_tag_t[0] in k and self.conf.analyzed_project_tag_t[1] in v:
+        #projects_to_return = [get_project_tag(project) for project in projects_to_return]
+        #return projects_to_return
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_LAST_CREATED_COPIES:
         print("Filtering projects besides most recent: {}".format(CONFIG.days_to_keep))
