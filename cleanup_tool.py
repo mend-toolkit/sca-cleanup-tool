@@ -138,7 +138,7 @@ def filter_projects_by_config(projects):
             print(f"Total: {len(projects_to_return)}. Archiving first {index}")
             projects_to_return = projects_to_return[:index]
         else:
-            print(f"Total: {CONFIG.days_to_keep}. Nothing to filter")
+            print(f"Total: {len(projects_to_return)}. Nothing to filter")
     return projects_to_return
 
 
