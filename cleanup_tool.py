@@ -67,9 +67,9 @@ def main():
                 if not CONFIG.skip_project_deletion:
                     delete_scan(product_token, project)
                 else:
-                    print("skipProjectDeletion flag found, skipping report generation")
+                    print("skipProjectDeletion flag found, skipping project generation")
     else:
-        print("Dry Run found {} project(s) to delete".format(total_projects_to_delete))
+        print(f"Dry Run found {total_projects_to_delete} project(s) to delete")
 
 def check_response_error(obj_response):
     if isinstance(obj_response, dict):
@@ -126,11 +126,11 @@ def filter_projects_by_config(projects):
         projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] if CONFIG.tag_pair[1] in project['tags'][0].get(CONFIG.tag_pair[0], '')] 
         print(f"Found {len(projects_to_return)} project(s)")
     
-    #if CONFIG.analyzed_project_tag_regex_in_value:
-        # for k, v in p.get('tags')[0].get('tags').items():
-        #         if self.conf.analyzed_project_tag_t[0] in k and self.conf.analyzed_project_tag_t[1] in v:
-        #projects_to_return = [get_project_tag(project) for project in projects_to_return]
-        #return projects_to_return
+    if CONFIG.analyzed_project_tag_regex_in_value:
+        print(f"Filtering projects based on project tag value with regex: {CONFIG.analyzed_project_tag_regex_in_value}")
+        projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] for k, v in project['tags'][0].items() if CONFIG.tag_pair[0] in k and CONFIG.tag_pair[1] in v ]
+        print(projects_to_return)
+        print(f"Found {len(projects_to_return)} project(s)")
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_LAST_CREATED_COPIES:
         print(f"Filtering projects besides most recent: {CONFIG.days_to_keep}")
@@ -303,7 +303,7 @@ def parse_config_file(filepath):
                     mend_url = get_config_file_value(config['DEFAULT'].get("MendUrl", config['DEFAULT'].get("WsUrl")), os.environ.get("WS_URL")),
                     report_types = get_config_file_value(config['DEFAULT'].get('ReportTypes'), os.environ.get("REPORT_TYPES")),
                     operation_mode = get_config_file_value(config['DEFAULT'].get("OperationMode"), FILTER_PROJECTS_BY_UPDATE_TIME),
-                    output_dir = get_config_file_value(config['DEFAULT'].get('ReportsDir'), os.getcwd() + "\\Mend\\Reports\\"),
+                    output_dir = get_config_file_value(config['DEFAULT'].get('OutputDir'), os.getcwd() + "\\Mend\\Reports\\"),
                     excluded_product_tokens = get_config_file_value(config['DEFAULT'].get("ExcludedProductTokens", []), os.environ.get("EXCLUDED_PRODUCT_TOKENS")),
                     included_product_tokens = get_config_file_value(config['DEFAULT'].get("IncludedProductTokens", []), os.environ.get("INCLUDED_PRODUCT_TOKENS")),
                     excluded_project_tokens = get_config_file_value(config['DEFAULT'].get("ExcludedProjectTokens", []), os.environ.get("EXCLUDED_PROJECT_TOKENS")),
@@ -358,8 +358,8 @@ def setup_config():
     if CONFIG.analyzed_project_tag:
         tag_pair = tuple(CONFIG.analyzed_project_tag.replace(" ", "").split(":"))
         if len(tag_pair) != 2:
-            print(f"Unable to parse Project tag: {CONFIG.analyzed_project_tag}")
-            CONFIG.analyzed_project_tag = None
+            print(f"Unable to parse project tag: {CONFIG.analyzed_project_tag}")
+            sys.exit("Expected format of project tags: <name:value>")
         else:
             CONFIG.tag_pair = tag_pair
     if CONFIG.excluded_project_name_patterns:
@@ -367,8 +367,8 @@ def setup_config():
     if CONFIG.analyzed_project_tag_regex_in_value:
         tag_pair = tuple(CONFIG.analyzed_project_tag_regex_in_value.replace(" ", "").split(":"))
         if len(tag_pair) != 2:
-            print(f"Unable to parse Project tag: {CONFIG.analyzed_project_tag_regex_in_value}")
-            CONFIG.analyzed_project_tag_regex_in_value = None
+            print(f"Unable to parse project tag: {CONFIG.analyzed_project_tag_regex_in_value}")
+            sys.exit("Expected format of project tags: <name:value>")
         else:
             CONFIG.tag_pair = tag_pair
 
