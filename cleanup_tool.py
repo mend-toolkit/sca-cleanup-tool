@@ -38,19 +38,22 @@ def main():
     global MAIN_API_CONNECTION
     
     CONFIG = parse_args()
-    MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url)
     setup_config()
+    MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url.lower().replace("https://", ""))
 
-    projects_to_remove = get_projects_to_remove()
-    if not projects_to_remove or len(projects_to_remove) == 0:
+    if CONFIG.dry_run:
+        print("Dry Run enabled - no reports or deletions will occur")
+
+    product_project_dict = get_projects_to_remove()
+    if not product_project_dict or len(product_project_dict) == 0:
         print("No projects to clean up were found")
         exit()
 
-    print("Found {} projects to delete, generating reports and removing projects...".format(len(projects_to_remove)))
-
+    total_projects_to_delete = (sum([len(product_project_dict[x]) for x in product_project_dict]))
     if not CONFIG.dry_run:
-        for product_token in projects_to_remove:
-            for project in projects_to_remove[product_token]:
+        print("Found {} project(s) to delete, generating reports and removing project(s)...".format(total_projects_to_delete))
+        for product_token in product_project_dict:
+            for project in product_project_dict[product_token]:
                 project_token = project['token']
                 if not CONFIG.skip_report_generation:
                     print("Genering reports for project: {}".format(project['name']))
@@ -62,10 +65,21 @@ def main():
                     delete_scan(product_token, project_token)
                 else:
                     print("skipProjectDeletion flag found, skipping report generation")
-
+    else:
+        print("Dry Run found {} project(s) to delete".format(total_projects_to_delete))
+def check_error(obj_response):
+    if isinstance(obj_response, dict):
+        if "errorMessage" in obj_response:
+            print("There was an issue with the request: " + obj_response["errorMessage"])
+            return True
+        else:
+            return False
+    
 def create_output_directory(product_name, project_name):
-    remove_invalid_chars(project_name)
-    remove_invalid_chars(project_name)
+    product_name = remove_invalid_chars(product_name)
+    project_name = remove_invalid_chars(project_name)
+    if not CONFIG.output_dir.endswith("\\"):
+        CONFIG.output_dir = CONFIG.output_dir + "\\"
     output_dir = CONFIG.output_dir + product_name + "\\" + project_name + "\\"
     if len(output_dir) > 180:
         output_dir = (output_dir[:180] + "..")
@@ -83,8 +97,7 @@ def delete_scan(product_token, project_token):
             })
     MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
     delete_response_obj = json.loads(MAIN_API_CONNECTION.getresponse().read().decode("utf-8"))
-    if "errorMessage" in delete_response_obj:
-        print("There was an issue with the request: " + delete_response_obj["errorMessage"])
+    if check_error(delete_response_obj):
         return
  
 def filter_projects_by_config(projects):
@@ -96,7 +109,7 @@ def filter_projects_by_config(projects):
         print("Filtering projects with name containing values {}".format(CONFIG.project_name_exclude_list))
         for patt in CONFIG.project_name_exclude_list:
             projects_to_return = [project for project in projects_to_return for k, v in project.items() if k == "name" and patt not in v]
-        print("Found {} projects with names matching not containing {}".format(len(projects_to_return),CONFIG.project_name_exclude_list))
+        print("Found {} project(s)".format(len(projects_to_return)))
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_UPDATE_TIME:
         if CONFIG.date_to_keep is None:
@@ -105,12 +118,12 @@ def filter_projects_by_config(projects):
             archive_date = (CONFIG.date_to_keep)
         print("Filtering projects older than: {}".format(archive_date))
         projects_to_return = [project for project in projects_to_return if archive_date.timestamp() > datetime.strptime(project["lastUpdatedDate"],'%Y-%m-%d %H:%M:%S %z').timestamp()]
-        print("Found {} projects older than {}".format(len(projects_to_return), archive_date))
+        print("Found {} project(s)".format(len(projects_to_return)))
     
     if CONFIG.analyzed_project_tag:
         print("Filtering projects based on project tag:" + CONFIG.analyzed_project_tag )
         projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] if CONFIG.tag_pair[1] in project["tags"][0].get(CONFIG.tag_pair[0], '')] 
-        print("Found {} projects matching tag".format(len(projects_to_return)))
+        print("Found {} project(s)".format(len(projects_to_return)))
     
     #if CONFIG.analyzed_project_tag_regex_in_value:
         # for k, v in p.get('tags')[0].get('tags').items():
@@ -132,6 +145,7 @@ def filter_projects_by_config(projects):
 def generate_reports(project, reports_to_generate, output_dir):
     project_token = project['token']
     for report in reports_to_generate.keys():
+        print("Generating {} report for project {}".format(report, project['name']))
         format = 'xlsx'
         if report.lower() == ATTRIBUTION:
             data = get_attribution_report(project_token)
@@ -142,7 +156,8 @@ def generate_reports(project, reports_to_generate, output_dir):
             data = get_alerts_report(reports_to_generate[report], project_token, report, "ignored")
         else:
             data = get_excel_report(reports_to_generate[report], project_token, report)
-        print("Generating {} report for project {}".format(report, project['name']))
+        
+        check_error(data)
         report = open(output_dir + report + '.' + format , "wb")
         report.write(data)
         report.close()
@@ -198,17 +213,19 @@ def get_reports_to_generate():
 
 
 def get_products():
+    request = json.dumps({
+        "requestType": "getAllProducts",
+        "userKey": CONFIG.mend_user_key,
+        "orgToken": CONFIG.mend_api_token,
+    })
+    MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
+    get_response_obj = json.loads(MAIN_API_CONNECTION.getresponse().read().decode("utf-8"))
+    if check_error(get_response_obj):
+        exit()
     if len(CONFIG.included_product_tokens) == 0:
-        request = json.dumps({
-            "requestType": "getAllProducts",
-            "userKey": CONFIG.mend_user_key,
-            "orgToken": CONFIG.mend_api_token,
-        })
-        MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
-        get_response_obj = json.loads(MAIN_API_CONNECTION.getresponse().read().decode("utf-8"))
         return [product for product in get_response_obj['products'] if product["productToken"] not in CONFIG.excluded_product_tokens]
     else:
-        return CONFIG.included_product_tokens.replace(" ", "").split(',')
+        return [product for product in get_response_obj['products'] if product["productToken"] in CONFIG.included_product_tokens and product["productToken"] not in CONFIG.excluded_product_tokens]
 
 def get_projects(product_token):
     request = json.dumps({
@@ -218,8 +235,8 @@ def get_projects(product_token):
     })
     MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
     get_response_obj = json.loads(MAIN_API_CONNECTION.getresponse().read().decode("utf-8"))
-    if "errorMessage" in get_response_obj:
-        print("There was an issue with the request: " + get_response_obj["errorMessage"])
+    if check_error(get_response_obj):
+        exit()
     else:
         return [vital_Response for vital_Response in get_response_obj['projectVitals']]
     
@@ -231,9 +248,9 @@ def get_project_tag(project):
         })
     MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
     get_response_obj = json.loads(MAIN_API_CONNECTION.getresponse().read().decode("utf-8"))
+    if check_error(get_response_obj):
+        exit()
     project["tags"] = [project_tags["tags"] for project_tags in get_response_obj["projectTags"]]
-    if "errorMessage" in get_response_obj:
-        print("There was an issue with the request: " + get_response_obj["errorMessage"])
     return project 
            
 def get_projects_to_remove():
@@ -273,7 +290,7 @@ def parse_args():
     return parser.parse_args()
 
 def remove_invalid_chars(string_to_clean):
-    return re.sub('[:*\\<>/"?|]', '-', string_to_clean)
+    return re.sub('[:*<>/"?|.]', '-', string_to_clean).replace("\\", "-")
 
 def setup_config():
     if CONFIG.analyzed_project_tag:
@@ -287,6 +304,7 @@ def setup_config():
         CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns.replace(" ", "").split(',')
     if CONFIG.analyzed_project_tag_regex_in_value:
         return
+
   
 def valid_date(s):
     try:
