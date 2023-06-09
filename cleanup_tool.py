@@ -6,6 +6,7 @@ import re
 import os
 from datetime import timedelta, datetime
 from distutils.util import strtobool
+from configparser import ConfigParser
 
 API_SUFFIX = "/api/"
 ATTRIBUTION = "attribution"
@@ -36,8 +37,13 @@ REPORTS = {
 def main():
     global CONFIG
     global MAIN_API_CONNECTION
+    if len(sys.argv) == 1:
+        CONFIG = parse_config_file("params.config")
+    elif not sys.argv[1].startswith('-'):
+        CONFIG = parse_config_file(sys.argv[1])
+    else:
+        CONFIG = parse_args()
     
-    CONFIG = parse_args()
     setup_config()
 
     MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url)
@@ -52,26 +58,24 @@ def main():
 
     total_projects_to_delete = (sum([len(product_project_dict[x]) for x in product_project_dict]))
     if not CONFIG.dry_run:
-        print("Found {} project(s) to delete, generating reports and removing project(s)...".format(total_projects_to_delete))
+        print(f"Found {total_projects_to_delete} project(s) to delete, generating reports and removing project(s)...")
         for product_token in product_project_dict:
             for project in product_project_dict[product_token]:
-                project_token = project['token']
                 if not CONFIG.skip_report_generation:
-                    print("Genering reports for project: {}".format(project['name']))
-                    generate_reports(project, get_reports_to_generate(), create_output_directory(project['productName'], project['name']))
+                    generate_reports(project)
                 else:
                     print("skipReportGeneration flag found, skipping report generation")
                 if not CONFIG.skip_project_deletion:
-                    print("Deleting project: {}".format(project['name']))
-                    delete_scan(product_token, project_token)
+                    delete_scan(product_token, project)
                 else:
                     print("skipProjectDeletion flag found, skipping report generation")
     else:
         print("Dry Run found {} project(s) to delete".format(total_projects_to_delete))
-def check_error(obj_response):
+
+def check_response_error(obj_response):
     if isinstance(obj_response, dict):
         if "errorMessage" in obj_response:
-            print("There was an issue with the request: " + obj_response["errorMessage"])
+            print(f"There was an issue with the request: {obj_response['errorMessage']}")
             return True
         else:
             return False
@@ -85,46 +89,43 @@ def create_output_directory(product_name, project_name):
     if len(output_dir) > 180:
         output_dir = (output_dir[:180] + "..")
     if not os.path.exists(output_dir):
-        print("Making directory" + output_dir)
+        print(f"Making directory {output_dir}")
         os.makedirs(output_dir)
     return output_dir
 
-def delete_scan(product_token, project_token):
+def delete_scan(product_token, project):
+    print(f"Deleting project: {project['name']}")
     request = json.dumps({
                 "requestType": "deleteProject",
                 "userKey": CONFIG.mend_user_key,
                 "productToken": product_token,
-                "projectToken": project_token
+                "projectToken": project['token']
             })
-    MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
-    delete_response_obj = json.loads(MAIN_API_CONNECTION.getresponse().read().decode("utf-8"))
-    if check_error(delete_response_obj):
+    response_obj = json.loads(post_api_request(request).decode("utf-8"))
+    if check_response_error(response_obj):
         return
  
 def filter_projects_by_config(projects):
-    projects_to_return = [project for project in projects if project["token"] not in CONFIG.excluded_project_tokens]
+    projects_to_return = [project for project in projects if project['token'] not in CONFIG.excluded_project_tokens]
     if len(projects_to_return) == 0:
         return []
     
     if CONFIG.excluded_project_name_patterns:
-        print("Filtering projects with name containing values {}".format(CONFIG.project_name_exclude_list))
+        print(f"Filtering projects with name containing values {CONFIG.project_name_exclude_list}")
         for patt in CONFIG.project_name_exclude_list:
             projects_to_return = [project for project in projects_to_return for k, v in project.items() if k == "name" and patt not in v]
-        print("Found {} project(s)".format(len(projects_to_return)))
+        print(f"Found {len(projects_to_return)} project(s)")
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_UPDATE_TIME:
-        if CONFIG.date_to_keep is None:
-            archive_date = (datetime.utcnow() - timedelta(days=CONFIG.days_to_keep))
-        else:
-            archive_date = (CONFIG.date_to_keep)
-        print("Filtering projects older than: {}".format(archive_date))
-        projects_to_return = [project for project in projects_to_return if archive_date.timestamp() > datetime.strptime(project["lastUpdatedDate"],'%Y-%m-%d %H:%M:%S %z').timestamp()]
-        print("Found {} project(s)".format(len(projects_to_return)))
+        archive_date = (datetime.utcnow() - timedelta(days=CONFIG.days_to_keep))
+        print(f"Filtering projects older than: {archive_date}")
+        projects_to_return = [project for project in projects_to_return if archive_date.timestamp() > datetime.strptime(project['lastUpdatedDate'],'%Y-%m-%d %H:%M:%S %z').timestamp()]
+        print(f"Found {len(projects_to_return)} project(s)")
     
     if CONFIG.analyzed_project_tag:
-        print("Filtering projects based on project tag:" + CONFIG.analyzed_project_tag )
-        projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] if CONFIG.tag_pair[1] in project["tags"][0].get(CONFIG.tag_pair[0], '')] 
-        print("Found {} project(s)".format(len(projects_to_return)))
+        print(f"Filtering projects based on project tag: {CONFIG.analyzed_project_tag}")
+        projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] if CONFIG.tag_pair[1] in project['tags'][0].get(CONFIG.tag_pair[0], '')] 
+        print(f"Found {len(projects_to_return)} project(s)")
     
     #if CONFIG.analyzed_project_tag_regex_in_value:
         # for k, v in p.get('tags')[0].get('tags').items():
@@ -133,38 +134,44 @@ def filter_projects_by_config(projects):
         #return projects_to_return
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_LAST_CREATED_COPIES:
-        print("Filtering projects besides most recent: {}".format(CONFIG.days_to_keep))
+        print(f"Filtering projects besides most recent: {CONFIG.days_to_keep}")
         if len(projects_to_return) > CONFIG.days_to_keep:
             index = len(projects_to_return) - CONFIG.days_to_keep
-            print("Total: {}. Archiving first {}".format(len(projects_to_return), index))
+            print(f"Total: {len(projects_to_return)}. Archiving first {index}")
             projects_to_return = projects_to_return[:index]
         else:
-            print("Total: {}. Nothing to filter".format(CONFIG.days_to_keep))
+            print(f"Total: {CONFIG.days_to_keep}. Nothing to filter")
     return projects_to_return
 
 
-def generate_reports(project, reports_to_generate, output_dir):
+def generate_reports(project):
+    print(f"Genering reports for project: {project['name']}")
     project_token = project['token']
-    for report in reports_to_generate.keys():
-        print("Generating {} report for project {}".format(report, project['name']))
-        format = 'xlsx'
-        if report.lower() == ATTRIBUTION:
-            data = get_attribution_report(project_token)
-            format = 'html'
-        elif report.lower() == RESOLVED_ALERTS:
-            data = get_alerts_report(reports_to_generate[report], project_token, report, "resolved")
-        elif report.lower() == IGNORED_ALERTS:
-            data = get_alerts_report(reports_to_generate[report], project_token, report, "ignored")
-        else:
-            data = get_excel_report(reports_to_generate[report], project_token, report)
-        
-        check_error(data)
-        report = open(output_dir + report + '.' + format , "wb")
-        report.write(data)
-        report.close()
+    reports_to_generate = get_reports_to_generate()
+    if len(reports_to_generate) > 0:
+        output_dir = create_output_directory(project['productName'], project['name'])
+        for report in reports_to_generate.keys():
+            print(f"Generating {report} report for project {project['name']}")
+            format = 'xlsx'
+            if report.lower() == ATTRIBUTION:
+                data = get_attribution_report(project_token)
+                format = 'html'
+            elif report.lower() == RESOLVED_ALERTS:
+                data = get_alerts_report(reports_to_generate[report], project_token, "resolved")
+            elif report.lower() == IGNORED_ALERTS:
+                data = get_alerts_report(reports_to_generate[report], project_token, "ignored")
+            else:
+                data = get_excel_report(reports_to_generate[report], project_token)
+            
+            check_response_error(data)
+            report = open(output_dir + report + '.' + format , "wb")
+            report.write(data)
+            report.close()
+    else:
+        print("No reports to generate")
 
 
-def get_alerts_report(request_type, project_token, filename, alertType):
+def get_alerts_report(request_type, project_token, alertType):
     request = json.dumps({
         "requestType": request_type,
         "userKey": CONFIG.mend_user_key,
@@ -173,9 +180,7 @@ def get_alerts_report(request_type, project_token, filename, alertType):
         "format" : "xlsx"
 
     })
-    MAIN_API_CONNECTION.request("POST", "/api/v1.4", request, HEADERS)
-    reportRes = MAIN_API_CONNECTION.getresponse()
-    return reportRes.read()
+    return post_api_request(request)
 
 def get_attribution_report(project_token):
     request = json.dumps({
@@ -185,20 +190,21 @@ def get_attribution_report(project_token):
         "reportingAggregationMode": "BY_PROJECT",
         "exportFormat" : "html"
     })
-    MAIN_API_CONNECTION.request("POST", "/api/v1.4", request, HEADERS)
-    reportRes = MAIN_API_CONNECTION.getresponse()
-    return reportRes.read()
-        
-def get_excel_report(request_type, project_token, filename):
+    return post_api_request(request)
+
+def get_config_file_value(config_val, default):
+        if isinstance(config_val, int):
+            return config_val if config_val is not None else default
+        return config_val if config_val else default     
+   
+def get_excel_report(request_type, project_token):
     request = json.dumps({
         "requestType": request_type,
         "userKey": CONFIG.mend_user_key,
         "projectToken": project_token,
         "format" : "xlsx"
     })
-    MAIN_API_CONNECTION.request("POST", "/api/v1.4", request, HEADERS)
-    reportRes = MAIN_API_CONNECTION.getresponse()
-    return reportRes.read()
+    return post_api_request(request)
 
 def get_reports_to_generate():
      if len(CONFIG.report_types) == 0:
@@ -209,7 +215,7 @@ def get_reports_to_generate():
          if len(report_dictionary) != len(reportKeys):
               unmatched_keys = [k for k in reportKeys if k not in report_dictionary.keys()]
               for unmatched_key in unmatched_keys:
-                print("Could not generate report for: " + unmatched_key + ". Unsupported report, please reference the README for supported reports")
+                print(f"Could not generate report for {unmatched_key}. Unsupported report, please reference the README for supported reports")
          return report_dictionary
 
 
@@ -219,14 +225,13 @@ def get_products():
         "userKey": CONFIG.mend_user_key,
         "orgToken": CONFIG.mend_api_token,
     })
-    MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
-    get_response_obj = json.loads(MAIN_API_CONNECTION.getresponse().read().decode("utf-8"))
-    if check_error(get_response_obj):
+    response_obj = json.loads(post_api_request(request).decode("utf-8"))
+    if check_response_error(response_obj):
         exit()
     if len(CONFIG.included_product_tokens) == 0:
-        return [product for product in get_response_obj['products'] if product["productToken"] not in CONFIG.excluded_product_tokens]
+        return [product for product in response_obj['products'] if product['productToken'] not in CONFIG.excluded_product_tokens]
     else:
-        return [product for product in get_response_obj['products'] if product["productToken"] in CONFIG.included_product_tokens and product["productToken"] not in CONFIG.excluded_product_tokens]
+        return [product for product in response_obj['products'] if product['productToken'] in CONFIG.included_product_tokens and product['productToken'] not in CONFIG.excluded_product_tokens]
 
 def get_projects(product_token):
     request = json.dumps({
@@ -234,74 +239,123 @@ def get_projects(product_token):
         "userKey": CONFIG.mend_user_key,
         "productToken": product_token,
     })
-    MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
-    get_response_obj = json.loads(MAIN_API_CONNECTION.getresponse().read().decode("utf-8"))
-    if check_error(get_response_obj):
+    response_obj = json.loads(post_api_request(request).decode("utf-8"))
+    if check_response_error(response_obj):
         exit()
     else:
-        return [vital_Response for vital_Response in get_response_obj['projectVitals']]
+        return [vital_Response for vital_Response in response_obj['projectVitals']]
     
 def get_project_tag(project):
     request = json.dumps({
             "requestType": "getProjectTags",
             "userKey": CONFIG.mend_user_key,
-            "projectToken": project["token"],
+            "projectToken": project['token'],
         })
-    MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
-    get_response_obj = json.loads(MAIN_API_CONNECTION.getresponse().read().decode("utf-8"))
-    if check_error(get_response_obj):
+    response_obj = json.loads(post_api_request(request).decode("utf-8"))
+    if check_response_error(response_obj):
         exit()
-    project["tags"] = [project_tags["tags"] for project_tags in get_response_obj["projectTags"]]
+    project['tags'] = [project_tags['tags'] for project_tags in response_obj['projectTags']]
     return project 
            
 def get_projects_to_remove():
     projects_to_remove = {}
     products = get_products()
     for product in products:
-            print("Getting projects to remove for product: {}".format(product["productName"]))
-            projects = get_projects(product["productToken"])
+            print(f"Getting projects to remove for product: {product['productName']}")
+            projects = get_projects(product['productToken'])
             if len(projects) > 0:
                 filted_projects = filter_projects_by_config(projects)
                 if len(filted_projects) > 0:
-                    projects_to_remove[product["productToken"]] = filted_projects
+                    projects_to_remove[product['productToken']] = filted_projects
             else:
-                print("No projects found for product: {}".format(product["productName"]))
+                print(f"No projects found for product: {product['productName']}")
     return projects_to_remove
 
-def parse_args():    
+def parse_args():
     parser = argparse.ArgumentParser(description="Mend SCA Clean up tool")
-    parser.add_argument('-a', '--mendURL', help="Mend URL", dest='mend_url', required=True) 
-    parser.add_argument('-d', '--dateToKeep', help="Date of latest scan to keep in YYYY-MM-DD format ", dest='date_to_keep', type=valid_date)
-    parser.add_argument('-e', '--excludedProductTokens', help="Excluded Product Tokens (comma seperated list)", dest='excluded_product_tokens', default=[]) 
+    parser.add_argument('-a', '--mendURL', '--wsURL', help="Mend URL", dest='mend_url', required=True) 
+    parser.add_argument('-e', '--excludedProductTokens', help="Excluded Product Tokens (comma seperated list)", dest='excluded_product_tokens') 
     parser.add_argument('-g', '--analyzedProjectTag', help="Analyze only the projects whose contain the specific Mend tag (key:value)", dest='analyzed_project_tag') 
-    parser.add_argument('-i', '--includedProductTokens', help="Included Product Tokens (comma seperated list)", dest='included_product_tokens', default=[]) 
+    parser.add_argument('-i', '--includedProductTokens', help="Included Product Tokens (comma seperated list)", dest='included_product_tokens') 
     parser.add_argument('-j', '--skipProjectDeletion', help="Skip Project Deletion", dest='skip_project_deletion', type=strtobool, default=False)
-    parser.add_argument('-k', '--apiToken', help="Mend API token", dest='mend_api_token', required=True) 
+    parser.add_argument('-k', '--apiToken', '--orgToken', help="Mend API token", dest='mend_api_token', required=True) 
     parser.add_argument('-m', '--operationMode', help="Clean up operation method", dest='operation_mode', default=FILTER_PROJECTS_BY_UPDATE_TIME,
                                 choices=[s for s in [FILTER_PROJECTS_BY_UPDATE_TIME, FILTER_PROJECTS_BY_LAST_CREATED_COPIES]])
-    parser.add_argument('-n', '--excludedProjectNamePatterns', help="List of excluded project name patterns (comma seperated list)", dest='excluded_project_name_patterns', default=[])
+    parser.add_argument('-n', '--excludedProjectNamePatterns', help="List of excluded project name patterns (comma seperated list)", dest='excluded_project_name_patterns')
     parser.add_argument('-o', '--outputDir', help="Output directory", dest='output_dir', default=os.getcwd() + "\\Mend\\Reports\\")
+    parser.add_argument('-p', '--projectParallelismLevel', help="Project parallelism level directory", dest='project_parallelism_level')
     parser.add_argument('-r', '--daysToKeep', help="Number of days to keep (overridden by --dateToKeep)", dest='days_to_keep', type=int, default=21)
     parser.add_argument('-s', '--skipReportGeneration', help="Skip Report Generation", dest='skip_report_generation', type=strtobool, default=False)
-    parser.add_argument('-t', '--reportTypes', help="Report Types to generate (comma seperated list)", dest='report_types', default=[])
+    parser.add_argument('-t', '--reportTypes', help="Report Types to generate (comma seperated list)", dest='report_types')
     parser.add_argument('-u', '--userKey', help="Mend UserKey", dest='mend_user_key', required=True) 
     parser.add_argument('-v', '--analyzedProjectTagRegexInValue', help="Analyze only the projects whose match their tag key and the tag value contains the specified regex (key:regexValue)", dest='analyzed_project_tag_regex_in_value') 
-    parser.add_argument('-x', '--excludedProjectTokens', help="Excluded Project Tokens (comma seperated list)", dest='excluded_project_tokens',  default=[]) 
+    parser.add_argument('-x', '--excludedProjectTokens', help="Excluded Project Tokens (comma seperated list)", dest='excluded_project_tokens') 
     parser.add_argument('-y', '--dryRun', help="Whether to run the tool without performing anything", dest='dry_run', type=strtobool, default=False)
     return parser.parse_args()
+
+def parse_config_file(filepath):
+    if os.path.exists(filepath):
+        config = ConfigParser()
+        config.optionxform = str
+        config.read(filepath)
+        return argparse.Namespace(
+                    mend_user_key = get_config_file_value(config['DEFAULT'].get("MendUserKey", config['DEFAULT'].get("WsUserKey")), os.environ.get("WS_USER_KEY")),
+                    mend_api_token = get_config_file_value(config['DEFAULT'].get("MendApiToken", config['DEFAULT'].get("WsOrgToken")), os.environ.get("WS_ORG_TOKEN")),
+                    mend_url = get_config_file_value(config['DEFAULT'].get("MendUrl", config['DEFAULT'].get("WsUrl")), os.environ.get("WS_URL")),
+                    report_types = get_config_file_value(config['DEFAULT'].get('ReportTypes'), os.environ.get("REPORT_TYPES")),
+                    operation_mode = get_config_file_value(config['DEFAULT'].get("OperationMode"), FILTER_PROJECTS_BY_UPDATE_TIME),
+                    output_dir = get_config_file_value(config['DEFAULT'].get('ReportsDir'), os.getcwd() + "\\Mend\\Reports\\"),
+                    excluded_product_tokens = get_config_file_value(config['DEFAULT'].get("ExcludedProductTokens", []), os.environ.get("EXCLUDED_PRODUCT_TOKENS")),
+                    included_product_tokens = get_config_file_value(config['DEFAULT'].get("IncludedProductTokens", []), os.environ.get("INCLUDED_PRODUCT_TOKENS")),
+                    excluded_project_tokens = get_config_file_value(config['DEFAULT'].get("ExcludedProjectTokens", []), os.environ.get("EXCLUDED_PROJECT_TOKENS")),
+                    excluded_project_name_patterns = get_config_file_value(config['DEFAULT'].get("ExcludedProjectNamePatterns", None), os.environ.get("EXCLUDED_PROJECT_NAME_PATTERNS")),
+                    analyzed_project_tag = get_config_file_value(config['DEFAULT'].get("AnalyzedProjectTag", None), os.environ.get("ANALYZED_PROJECT_TAG")),
+                    analyzed_project_tag_regex_in_value = get_config_file_value(config['DEFAULT'].get("AnalyzedProjectTagRegexInValue", None), os.environ.get("ANALYZED_PROJECT_TAG_REGEX_IN_VALUE")),
+                    days_to_keep = get_config_file_value(config['DEFAULT'].getint("DaysToKeep", 50000), os.environ.get("DAYS_TO_KEEP")),
+                    project_parallelism_level = config['DEFAULT'].get('ProjectParallelismLevel', 5),
+                    dry_run = config['DEFAULT'].getboolean("DryRun", False),
+                    skip_report_generation = config['DEFAULT'].getboolean("SkipReportGeneration", False),
+                    skip_project_deletion = config['DEFAULT'].getboolean("SkipProjectDeletion", False)
+                )
+    else:
+        print(f"No configuration file found at: {filepath}")
+        exit()
+
+def post_api_request(request):
+    try:
+        MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
+        return MAIN_API_CONNECTION.getresponse().read()
+    except:
+        sys.exit(f"There was an issue calling the Mend API with URL: {CONFIG.mend_url}")
 
 def remove_invalid_chars(string_to_clean):
     return re.sub('[:*<>/"?|.]', '-', string_to_clean).replace("\\", "-")
 
 def setup_config():
-    CONFIG.mend_url = CONFIG.mend_url.lower()
-    if API_SUFFIX in CONFIG.mend_url:
-        apiIndex =  CONFIG.mend_url.find(API_SUFFIX)
+    if not CONFIG.mend_user_key:
+        sys.exit(f"A Mend user key was not provided")
+    if not CONFIG.mend_api_token:
+        sys.exit(f"A Mend Api key was not provided")
+
+    if CONFIG.mend_url:
+        CONFIG.mend_url = CONFIG.mend_url.lower()
+        if API_SUFFIX in CONFIG.mend_url:
+            apiIndex =  CONFIG.mend_url.find(API_SUFFIX)
+        else:
+            apiIndex = len(CONFIG.mend_url)
+        CONFIG.mend_url = re.sub("(https?)://", "", CONFIG.mend_url[:apiIndex])
     else:
-        apiIndex = len(CONFIG.mend_url)
+        sys.exit(f"A Mend URL was not provided") 
     
-    CONFIG.mend_url = re.sub('(https?)://', "", CONFIG.mend_url[:apiIndex])
-    print(CONFIG.mend_url)
+    if CONFIG.days_to_keep is None:
+        print("Days to keep was not provided, defaulting to 21")
+        CONFIG.days_to_keep = 21
+    
+    CONFIG.included_product_tokens = CONFIG.included_product_tokens.replace(" ", "").split(",") if CONFIG.included_product_tokens else []
+    CONFIG.excluded_product_tokens = CONFIG.excluded_product_tokens.replace(" ", "").split(",") if CONFIG.excluded_product_tokens else []
+    CONFIG.excluded_project_tokens = CONFIG.excluded_project_tokens.replace(" ", "").split(",") if CONFIG.excluded_project_tokens else []
+    CONFIG.excluded_project_name_patterns = CONFIG.excluded_project_name_patterns.split(",") if CONFIG.excluded_project_name_patterns else []
+
     if CONFIG.analyzed_project_tag:
         tag_pair = tuple(CONFIG.analyzed_project_tag.replace(" ", "").split(":"))
         if len(tag_pair) != 2:
@@ -313,14 +367,6 @@ def setup_config():
         CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns.replace(" ", "").split(',')
     if CONFIG.analyzed_project_tag_regex_in_value:
         return
-
-  
-def valid_date(s):
-    try:
-        return datetime.strptime(s, "%Y-%m-%d")
-    except ValueError:
-        msg = "not a valid date: {0!r}".format(s)
-        raise argparse.ArgumentTypeError(msg)
 
 if __name__ == "__main__":
     main()
