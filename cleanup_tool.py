@@ -129,7 +129,6 @@ def filter_projects_by_config(projects):
     if CONFIG.analyzed_project_tag_regex_in_value:
         print(f"Filtering projects based on project tag value with regex: {CONFIG.analyzed_project_tag_regex_in_value}")
         projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] for k, v in project['tags'][0].items() if CONFIG.tag_pair[0] in k and CONFIG.tag_pair[1] in v ]
-        print(projects_to_return)
         print(f"Found {len(projects_to_return)} project(s)")
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_LAST_CREATED_COPIES:
