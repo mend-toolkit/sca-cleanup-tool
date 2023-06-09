@@ -128,7 +128,7 @@ def filter_projects_by_config(projects):
     
     if CONFIG.analyzed_project_tag_regex_in_value:
         print(f"Filtering projects based on project tag value with regex: {CONFIG.analyzed_project_tag_regex_in_value}")
-        projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] for k, v in project['tags'][0].items() if CONFIG.tag_pair[0] in k and CONFIG.tag_pair[1] in v ]
+        projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] for k, v in project['tags'][0].items() if CONFIG.tag_pair[0] in k and any(CONFIG.tag_pair[1] in item for item in v) ]
         print(f"Found {len(projects_to_return)} project(s)")
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_LAST_CREATED_COPIES:
@@ -344,15 +344,6 @@ def setup_config():
         CONFIG.mend_url =  CONFIG.mend_url[:apiIndex]
     else:
         sys.exit(f"A Mend URL was not provided") 
-    
-    if CONFIG.days_to_keep is None:
-        print("Days to keep was not provided, defaulting to 21")
-        CONFIG.days_to_keep = 21
-    
-    CONFIG.included_product_tokens = CONFIG.included_product_tokens.replace(" ", "").split(",") if CONFIG.included_product_tokens else []
-    CONFIG.excluded_product_tokens = CONFIG.excluded_product_tokens.replace(" ", "").split(",") if CONFIG.excluded_product_tokens else []
-    CONFIG.excluded_project_tokens = CONFIG.excluded_project_tokens.replace(" ", "").split(",") if CONFIG.excluded_project_tokens else []
-    CONFIG.excluded_project_name_patterns = CONFIG.excluded_project_name_patterns.split(",") if CONFIG.excluded_project_name_patterns else []
 
     if CONFIG.analyzed_project_tag:
         tag_pair = tuple(CONFIG.analyzed_project_tag.replace(" ", "").split(":"))
@@ -361,8 +352,7 @@ def setup_config():
             sys.exit("Expected format of project tags: <name:value>")
         else:
             CONFIG.tag_pair = tag_pair
-    if CONFIG.excluded_project_name_patterns:
-        CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns.replace(" ", "").split(',')
+
     if CONFIG.analyzed_project_tag_regex_in_value:
         tag_pair = tuple(CONFIG.analyzed_project_tag_regex_in_value.replace(" ", "").split(":"))
         if len(tag_pair) != 2:
@@ -370,6 +360,20 @@ def setup_config():
             sys.exit("Expected format of project tags: <name:value>")
         else:
             CONFIG.tag_pair = tag_pair
+
+    if CONFIG.days_to_keep is None:
+        print("Days to keep was not provided, defaulting to 21")
+        CONFIG.days_to_keep = 21
+    
+    CONFIG.included_product_tokens = CONFIG.included_product_tokens.replace(" ", "").split(",") if CONFIG.included_product_tokens else []
+    CONFIG.excluded_product_tokens = CONFIG.excluded_product_tokens.replace(" ", "").split(",") if CONFIG.excluded_product_tokens else []
+    CONFIG.excluded_project_tokens = CONFIG.excluded_project_tokens.replace(" ", "").split(",") if CONFIG.excluded_project_tokens else []
+    CONFIG.excluded_project_name_patterns = CONFIG.excluded_project_name_patterns.split(",") if CONFIG.excluded_project_name_patterns else []
+    CONFIG.report_types = CONFIG.report_types if CONFIG.report_types else []
+
+    if CONFIG.excluded_project_name_patterns:
+        CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns.replace(" ", "").split(',')
+   
 
 if __name__ == "__main__":
     main()
