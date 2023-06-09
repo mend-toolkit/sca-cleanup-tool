@@ -7,7 +7,7 @@ import os
 from datetime import timedelta, datetime
 from distutils.util import strtobool
 
-
+API_SUFFIX = "/api/"
 ATTRIBUTION = "attribution"
 FILTER_PROJECTS_BY_UPDATE_TIME = "FilterProjectsByUpdateTime"
 FILTER_PROJECTS_BY_LAST_CREATED_COPIES = "FilterProjectsByLastCreatedCopies"
@@ -39,7 +39,8 @@ def main():
     
     CONFIG = parse_args()
     setup_config()
-    MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url.lower().replace("https://", ""))
+
+    MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url)
 
     if CONFIG.dry_run:
         print("Dry Run enabled - no reports or deletions will occur")
@@ -293,6 +294,10 @@ def remove_invalid_chars(string_to_clean):
     return re.sub('[:*<>/"?|.]', '-', string_to_clean).replace("\\", "-")
 
 def setup_config():
+
+    apiIndex = CONFIG.mend_url.lower().index(API_SUFFIX)
+    CONFIG.mend_url = re.sub('(https?)://', "", CONFIG.mend_url[:apiIndex])
+    print(CONFIG.mend_url)
     if CONFIG.analyzed_project_tag:
         tag_pair = tuple(CONFIG.analyzed_project_tag.replace(" ", "").split(":"))
         if len(tag_pair) != 2:
