@@ -294,8 +294,12 @@ def remove_invalid_chars(string_to_clean):
     return re.sub('[:*<>/"?|.]', '-', string_to_clean).replace("\\", "-")
 
 def setup_config():
-
-    apiIndex = CONFIG.mend_url.lower().index(API_SUFFIX)
+    CONFIG.mend_url = CONFIG.mend_url.lower()
+    if API_SUFFIX in CONFIG.mend_url:
+        apiIndex =  CONFIG.mend_url.find(API_SUFFIX)
+    else:
+        apiIndex = len(CONFIG.mend_url)
+    
     CONFIG.mend_url = re.sub('(https?)://', "", CONFIG.mend_url[:apiIndex])
     print(CONFIG.mend_url)
     if CONFIG.analyzed_project_tag:
