@@ -8,7 +8,6 @@ from datetime import timedelta, datetime
 from distutils.util import strtobool
 from configparser import ConfigParser
 
-API_SUFFIX = "/api/"
 ATTRIBUTION = "attribution"
 FILTER_PROJECTS_BY_UPDATE_TIME = "FilterProjectsByUpdateTime"
 FILTER_PROJECTS_BY_LAST_CREATED_COPIES = "FilterProjectsByLastCreatedCopies"
@@ -338,12 +337,12 @@ def setup_config():
         sys.exit(f"A Mend Api key was not provided")
 
     if CONFIG.mend_url:
-        CONFIG.mend_url = CONFIG.mend_url.lower()
-        if API_SUFFIX in CONFIG.mend_url:
-            apiIndex =  CONFIG.mend_url.find(API_SUFFIX)
+        CONFIG.mend_url = re.sub("(https?)://", "", CONFIG.mend_url.lower())
+        if '/' in CONFIG.mend_url:
+            apiIndex =  CONFIG.mend_url.find('/')
         else:
             apiIndex = len(CONFIG.mend_url)
-        CONFIG.mend_url = re.sub("(https?)://", "", CONFIG.mend_url[:apiIndex])
+        CONFIG.mend_url =  CONFIG.mend_url[:apiIndex]
     else:
         sys.exit(f"A Mend URL was not provided") 
     
@@ -366,7 +365,12 @@ def setup_config():
     if CONFIG.excluded_project_name_patterns:
         CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns.replace(" ", "").split(',')
     if CONFIG.analyzed_project_tag_regex_in_value:
-        return
+        tag_pair = tuple(CONFIG.analyzed_project_tag_regex_in_value.replace(" ", "").split(":"))
+        if len(tag_pair) != 2:
+            print(f"Unable to parse Project tag: {CONFIG.analyzed_project_tag_regex_in_value}")
+            CONFIG.analyzed_project_tag_regex_in_value = None
+        else:
+            CONFIG.tag_pair = tag_pair
 
 if __name__ == "__main__":
     main()
