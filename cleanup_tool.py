@@ -15,11 +15,12 @@ HEADERS = {
   'Content-Type': 'application/json'
 }
 IGNORED_ALERTS = "ignored_alerts"
-RESOLVED_ALERTS = "resolved_alerts"   
+RESOLVED_ALERTS = "resolved_alerts"
+REJECTED_BY_POLICY = "alerts_rejected_by_policy"
 REPORTS = {
            "bugs": "getProjectBugsReport",
            IGNORED_ALERTS: "getProjectSecurityAlertsByVulnerabilityReport",
-           "alerts_rejected_by_policy": "", # Research
+           REJECTED_BY_POLICY: "getProjectAlertsByType",
            "in_house_libraries": "getProjectInHouseReport",
            "license_compatibility": "getProjectLicenseCompatibilityReport",
            RESOLVED_ALERTS: "getProjectSecurityAlertsByVulnerabilityReport",
@@ -158,6 +159,9 @@ def generate_reports(project):
                 data = get_alerts_report(reports_to_generate[report], project_token, "resolved")
             elif report.lower() == IGNORED_ALERTS:
                 data = get_alerts_report(reports_to_generate[report], project_token, "ignored")
+            elif report.lower() == REJECTED_BY_POLICY:
+                data = get_alerts_by_type(reports_to_generate[report], project_token, "REJECTED_BY_POLICY_RESOURCE")
+                format = "json"
             else:
                 data = get_excel_report(reports_to_generate[report], project_token)
             
@@ -177,6 +181,15 @@ def get_alerts_report(request_type, project_token, alertType):
         "status": alertType,
         "format" : "xlsx"
 
+    })
+    return post_api_request(request)
+
+def get_alerts_by_type(requestType, project_token, alertType):
+    request = json.dumps({
+        "requestType": requestType,
+        "userKey": CONFIG.mend_user_key,
+        "projectToken": project_token,
+        "alertType": alertType
     })
     return post_api_request(request)
 
