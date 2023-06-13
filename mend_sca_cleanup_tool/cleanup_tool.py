@@ -4,15 +4,21 @@ import sys
 import argparse
 import re
 import os
+import uuid
 from datetime import timedelta, datetime
 from distutils.util import strtobool
 from configparser import ConfigParser
+from _version import __description__, __tool_name__, __version__
+
 
 ATTRIBUTION = "attribution"
 FILTER_PROJECTS_BY_UPDATE_TIME = "FilterProjectsByUpdateTime"
 FILTER_PROJECTS_BY_LAST_CREATED_COPIES = "FilterProjectsByLastCreatedCopies"
 HEADERS = {
-  'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'agent': f"ps-{__tool_name__}".replace('_', '-'),
+    'agentVersion': __version__,
+    'ctxId': uuid.uuid1().__str__()
 }
 IGNORED_ALERTS = "ignored_alerts"
 RESOLVED_ALERTS = "resolved_alerts"
@@ -52,13 +58,15 @@ def main():
         print("Dry Run enabled - no reports or deletions will occur")
 
     product_project_dict = get_projects_to_remove()
-    if not product_project_dict or len(product_project_dict) == 0:
-        print("No projects to clean up were found")
-        exit()
+
 
     total_projects_to_delete = (sum([len(product_project_dict[x]) for x in product_project_dict]))
     if not CONFIG.dry_run:
-        print(f"Found {total_projects_to_delete} project(s) to delete, generating reports and removing project(s)...")
+        if total_projects_to_delete == 0:
+            print("No projects to clean up were found")
+            exit()
+        else:
+            print(f"Found {total_projects_to_delete} project(s) to delete, generating reports and removing project(s)...")
         for product_token in product_project_dict:
             for project in product_project_dict[product_token]:
                 if not CONFIG.skip_report_generation:

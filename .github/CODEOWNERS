@@ -1,0 +1,4 @@
+* @mend-toolkit/mend-ps-maintainers
+/.github @mend-toolkit/mend-ps-admins
+/.whitesource @mend-toolkit/mend-ps-admins
+/README.md @mend-toolkit/mend-ps-admins
