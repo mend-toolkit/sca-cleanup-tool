@@ -37,7 +37,7 @@ REPORTS = {
            "inventory": "getProjectInventoryReport",
            "request_history": "getProjectRequestHistoryReport",
            "source_file_inventory": "getProjectSourceFileInventoryReport",
-           "men": "getProjectVulnerabilityReport"
+           "vulnerability": "getProjectVulnerabilityReport"
            }
 
 def main():
