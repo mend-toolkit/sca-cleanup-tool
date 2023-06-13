@@ -1,6 +1,6 @@
 [![Logo](https://resources.mend.io/mend-sig/logo/mend-dark-logo-horizontal.png)](https://www.mend.io/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-yellowgreen.svg)](https://opensource.org/licenses/Apache-2.0)
-[![WS projects cleanup](https://github.com/whitesource-ps/ws-cleanup-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/whitesource-ps/ws-cleanup-tool/actions/workflows/ci.yml)
+[![Mend projects cleanup](https://github.com/whitesource-ps/ws-cleanup-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/whitesource-ps/ws-cleanup-tool/actions/workflows/ci.yml)
 [![Python 3.6](https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Blue_Python_3.6%2B_Shield_Badge.svg/86px-Blue_Python_3.6%2B_Shield_Badge.svg.png)](https://www.python.org/downloads/release/python-360/)
 [![PyPI](https://img.shields.io/pypi/v/ws-cleanup-tool?style=plastic)](https://pypi.org/project/ws-cleanup-tool/)
 
@@ -8,9 +8,10 @@
 * The self-hosted CLI tool features cleaning up projects and generating reports before deletion in 2 modes:
   * By stating _OperationMode=FilterProjectsByUpdateTime_ and how many days to keep (-r/ DaysToKeep=)
   * By stating _OperationMode=FilterProjectsByLastCreatedCopies_ and how many copies to keep (-r/ DaysToKeep=)
-* The reports are saved in the designated location as follows: _[ReportsDir]/[PRODUCT NAME]/[PROJECT NAME]/[REPORT NAME]_  
+* The reports are saved in the designated location as follows: _[Output_DIR]/[PRODUCT NAME]/[PROJECT NAME]/[REPORT NAME]_  
 * To review the outcome before actual deletion use _-y true_ / _DryRun=True_ flag. It will _NOT_ delete any project nor create reports 
 * By default, the tool generates all possible project-level reports. By specifying ((_-t_ / _Reports=_/) it is possible to select specific reports
+  * The full list of available reports is below
 * The full parameters list is available below
 * There are two ways to configure the tool:
   * By configuring _params.config_ on the executed dir or passing a path to the file in the same format
@@ -77,19 +78,19 @@ Keep the last month for both PRODUCT_1 and PRODUCT_2, but do not delete projects
 
 ## Full Usage flags:
 ```shell
-usage: ws_cleanup_tool [-h] -u WS_USER_KEY -k WS_TOKEN [-a WS_URL] [-t REPORT_TYPES] [-m {FilterProjectsByUpdateTime,FilterProjectsByLastCreatedCopies}] [-o OUTPUT_DIR] [-e EXCLUDED_PRODUCT_TOKENS] [-i INCLUDED_PRODUCT_TOKENS]
+usage: ws_cleanup_tool [-h] -u MEND_USER_KEY -k MEND_TOKEN [-a MEND_URL] [-t REPORT_TYPES] [-m {FilterProjectsByUpdateTime,FilterProjectsByLastCreatedCopies}] [-o OUTPUT_DIR] [-e EXCLUDED_PRODUCT_TOKENS] [-i INCLUDED_PRODUCT_TOKENS]
                     [-g ANALYZED_PROJECT_TAG] [-r DAYS_TO_KEEP] [-p PROJECT_PARALLELISM_LEVEL] [-y DRY_RUN]
 
-WS Cleanup Tool
+Mend Cleanup Tool
 
 optional arguments:
   -h, --help            show this help message and exit
-  -u WS_USER_KEY, --userKey 
-                    WS User Key
-  -k WS_ORG_TOKEN, --orgToken
-                    WS Organization Key (API Key)
-  -a WS_URL, --wsUrl
-                    WS URL
+  -u MEND_USER_KEY, --userKey 
+                    Mend User Key
+  -k MEND_ORG_TOKEN, --orgToken
+                    Mend Organization Key (API Key)
+  -a MEND_URL, --wsUrl
+                    Mend URL
   -t REPORT_TYPES, --reportTypes
                     Report Types to generate (comma seperated list)
   -m OPERATION_MODE, --operationMode {FilterProjectsByUpdateTime,FilterProjectsByLastCreatedCopies}
@@ -103,17 +104,19 @@ optional arguments:
   -g ANALYZED_PROJECT_TAG, --AnalyzedProjectTag
                     Analyze only the projects whose contain the specific Mend tag (key:value)
   -v ANALYZED_PROJECT_TAG_REGEX_IN_VALUE, --AnalyzedProjectTagRegexInValue
-                    Analyze only the projects whose match their tag key and the tag value contains the specified regex (key:regexValue)
+                    Analyze only the projects whose match their tag key and the tag value contains the specified value (key:value)
+                    Note: This was originally broken in the original ws-cleanup-tool. The functionality was adjusted to work as originally written. The naming convension is a misnomer but was kept to avoid breaking existing integrations.
   -r DAYS_TO_KEEP, --DaysToKeep
                     Number of days to keep in FilterProjectsByUpdateTime or number of copies in FilterProjectsByLastCreatedCopies
   -p PROJECT_PARALLELISM_LEVEL, --ProjectParallelismLevel
                     Project parallelism level
+                    Note: This is currently not used in this version of the mend-sca-cleanup-tool. Was kept to prevent breaking existing integrations.
   -y DRY_RUN, --DryRun
                     Logging the projects that are supposed to be deleted without deleting and creating reports
                     default False
   -s SKIP_REPORT_GENERATION, --SkipReportGeneration
                     Skip report generation step
-                    default True
+                    default False
   -j SKIP_PROJECT_DELETION, --SkipProjectDeletion
                     Skip project deletion step
                     default False                                        

@@ -89,10 +89,10 @@ jobs:
           key: ${{ steps.set_env_vars.outputs.PYTHON_VERSION }}_${{ steps.set_env_vars.outputs.TOOL_DIR }}_${{ github.run_id }}
 
       - name: Full test Time-Based
-        run: $TOOL_NAME -r 50000 -m FilterProjectsByUpdateTime -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -y true -o /tmp
+        run: $TOOL_NAME -r 50000 -m FilterProjectsByUpdateTime -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -a {{ secrets.WS_URL }} -y true -o /tmp
 
       - name: Full test Copy-Based
-        run: $TOOL_NAME -r 50000 -m FilterProjectsByLastCreatedCopies -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -y true -o /tmp
+        run: $TOOL_NAME -r 50000 -m FilterProjectsByLastCreatedCopies -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -a {{ secrets.WS_URL }} -y true -o /tmp
 
   publish:
     if: ${{ startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/staging'}}
