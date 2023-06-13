@@ -4,15 +4,21 @@ import sys
 import argparse
 import re
 import os
+import uuid
 from datetime import timedelta, datetime
 from distutils.util import strtobool
 from configparser import ConfigParser
+from mend_sca_cleanup_tool._version import __description__, __tool_name__, __version__
+
 
 ATTRIBUTION = "attribution"
 FILTER_PROJECTS_BY_UPDATE_TIME = "FilterProjectsByUpdateTime"
 FILTER_PROJECTS_BY_LAST_CREATED_COPIES = "FilterProjectsByLastCreatedCopies"
 HEADERS = {
-  'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'agent': f"ps-{__tool_name__}".replace('_', '-'),
+    'agentVersion': __version__,
+    'ctxId': uuid.uuid1().__str__()
 }
 IGNORED_ALERTS = "ignored_alerts"
 RESOLVED_ALERTS = "resolved_alerts"
@@ -52,13 +58,15 @@ def main():
         print("Dry Run enabled - no reports or deletions will occur")
 
     product_project_dict = get_projects_to_remove()
-    if not product_project_dict or len(product_project_dict) == 0:
-        print("No projects to clean up were found")
-        exit()
+
 
     total_projects_to_delete = (sum([len(product_project_dict[x]) for x in product_project_dict]))
     if not CONFIG.dry_run:
-        print(f"Found {total_projects_to_delete} project(s) to delete, generating reports and removing project(s)...")
+        if total_projects_to_delete == 0:
+            print("No projects to clean up were found")
+            exit()
+        else:
+            print(f"Found {total_projects_to_delete} project(s) to delete, generating reports and removing project(s)...")
         for product_token in product_project_dict:
             for project in product_project_dict[product_token]:
                 if not CONFIG.skip_report_generation:
@@ -293,7 +301,7 @@ def parse_args():
                                 choices=[s for s in [FILTER_PROJECTS_BY_UPDATE_TIME, FILTER_PROJECTS_BY_LAST_CREATED_COPIES]])
     parser.add_argument('-n', '--excludedProjectNamePatterns', help="List of excluded project name patterns (comma seperated list)", dest='excluded_project_name_patterns')
     parser.add_argument('-o', '--outputDir', help="Output directory", dest='output_dir', default=os.getcwd() + "\\Mend\\Reports\\")
-    parser.add_argument('-p', '--projectParallelismLevel', help="Project parallelism level directory", dest='project_parallelism_level')
+    parser.add_argument('-p', '--projectParallelismLevel', help="Project parallelism level directory Note: This is currently not used in this version of the mend-sca-cleanup-tool", dest='project_parallelism_level')
     parser.add_argument('-r', '--daysToKeep', help="Number of days to keep (overridden by --dateToKeep)", dest='days_to_keep', type=int, default=21)
     parser.add_argument('-s', '--skipReportGeneration', help="Skip Report Generation", dest='skip_report_generation', type=strtobool, default=False)
     parser.add_argument('-t', '--reportTypes', help="Report Types to generate (comma seperated list)", dest='report_types')
