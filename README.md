@@ -29,9 +29,9 @@
 * It is recommended to use a service user.
 
 ## Installation and Execution from PyPi (recommended):
-1. Install by executing: `pip install ws-cleanup-tool`
+1. Install by executing: `pip install mend-sca-cleanup-tool`
 2. Configure the appropriate parameters either by using the command line or in `params.config`.
-3. Execute the tool (`ws_cleanup_tool ...`). 
+3. Execute the tool (`mend-sca_cleanup_tool ...`). 
 
 ## Installation and Execution from GitHub:
 1. Download and unzip **ws-cleanup-tool.zip** 
