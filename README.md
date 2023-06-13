@@ -145,6 +145,7 @@ The following Mend project reports are available through the clean-up tool. Thes
 
 ## SAST Clean up
 If you need to run a clean up script for your SAST environment, please refer to the Mend SAST clean up kit in the [Mend Toolkit](https://github.com/mend-toolkit/mend-examples/tree/main/Scripts/Mend%20SAST) 
+
 **note:** The optimal cleanup scope is derived from the size of the environment, Mend scope size (memory and CPU) allocated for the server, and runtime time constraints.    
 
 
