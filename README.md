@@ -31,47 +31,47 @@
 ## Installation and Execution from PyPi (recommended):
 1. Install by executing: `pip install mend-sca-cleanup-tool`
 2. Configure the appropriate parameters either by using the command line or in `params.config`.
-3. Execute the tool (`mend-sca_cleanup_tool ...`). 
+3. Execute the tool (`mend_sca_cleanup_tool ...`). 
 
 ## Installation and Execution from GitHub:
-1. Download and unzip **ws-cleanup-tool.zip** 
+1. Download and unzip **mend-sca-cleanup-tool.zip** from the most recent tagged release.
 2. Install requirements: `pip install -r requirements.txt`
 3. Configure the appropriate parameters either by using the command line or `params.config`.
-4. Execute: `python cleanup_tool.py <CONFIG_FILE>` 
+4. Execute: `python sca_cleanup_tool.py <CONFIG_FILE>` 
 
 ## Examples:
 Perform dry run check-in to get to know which projects would have been deleted:  
-`ws_cleanup_tool -r 30 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -y true`
+`mend_sca_cleanup_tool -r 30 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -y true`
 
 ---
 
 Keep the last 60 days on each product, omitting a product token <PRODUCT_1> from analyzing:  
-`ws_cleanup_tool -r 60 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -e <PRODUCT_TOKEN_1>`
+`mend_sca_cleanup_tool -r 60 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -e <PRODUCT_TOKEN_1>`
 
 ---
 
 Keep only two of the newest projects in each product token PRODUCT_1 and PRODUCT_2:  
-`ws_cleanup_tool -r 2 -m FilterProjectsByLastCreatedCopies -u <USER_KEY> -k <ORG_TOKEN> -i <PRODUCT_TOKEN_1>,<PRODUCT_TOKEN_2>`
+`mend_sca_cleanup_tool -r 2 -m FilterProjectsByLastCreatedCopies -u <USER_KEY> -k <ORG_TOKEN> -i <PRODUCT_TOKEN_1>,<PRODUCT_TOKEN_2>`
 
 ---
 
 Analyze only the projects that have the specified Mend tag and keep the newest project in each product:  
-`ws_cleanup_tool -r 1 -m FilterProjectsByLastCreatedCopies -u <USER_KEY> -k <ORG_TOKEN> -g <KEY>:<VALUE>`
+`mend_sca_cleanup_tool -r 1 -m FilterProjectsByLastCreatedCopies -u <USER_KEY> -k <ORG_TOKEN> -g <KEY>:<VALUE>`
 
 ---
 
 Keep the last 2 weeks and analyze only the projects whose match their tag key and the tag value contains the specified regex:  
-`ws_cleanup_tool -r 14 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -g <KEY>:<REGEX_VALUE>`
+`mend_sca_cleanup_tool -r 14 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -g <KEY>:<REGEX_VALUE>`
 
 ---
 
 Keep the last 100 days for both PRODUCT_1 and PRODUCT_2, but do not delete the project PROJECT_1 (which is a project in one of the included products):  
-`ws_cleanup_tool -r 100 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -i <PRODUCT_TOKEN_1>,<PRODUCT_TOKEN_2> -x <PROJECT_TOKEN_1>`
+`mend_sca_cleanup_tool -r 100 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -i <PRODUCT_TOKEN_1>,<PRODUCT_TOKEN_2> -x <PROJECT_TOKEN_1>`
 
 ---
 
 Keep the last month for both PRODUCT_1 and PRODUCT_2, but do not delete projects that contain provided strings in their names:  
-`ws_cleanup_tool -r 31 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -i <PRODUCT_TOKEN_1>,<PRODUCT_TOKEN_2> -n CI_,-test`
+`mend_sca_cleanup_tool -r 31 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -i <PRODUCT_TOKEN_1>,<PRODUCT_TOKEN_2> -n CI_,-test`
 
 ---
 
@@ -87,10 +87,10 @@ optional arguments:
   -h, --help            show this help message and exit
   -u MEND_USER_KEY, --userKey 
                     Mend User Key
-  -k MEND_ORG_TOKEN, --orgToken
+  -k MEND_API_TOKEN, --apiToken, --orgToken
                     Mend Organization Key (API Key)
-  -a MEND_URL, --wsUrl
-                    Mend URL
+  -a MEND_URL, --mendUrl, --wsURL
+                    Mend URL. This value defaults to saas.whitesourcesoftware.com.
   -t REPORT_TYPES, --reportTypes
                     Report Types to generate (comma seperated list)
   -m OPERATION_MODE, --operationMode {FilterProjectsByUpdateTime,FilterProjectsByLastCreatedCopies}
@@ -126,4 +126,25 @@ optional arguments:
                     List of excluded project name patterns                 
 ```
 
+## Available reports
+The following Mend project reports are available through the clean-up tool. These values can be specified with the -t flag to generate specific reports.
+* alerts
+* alerts_rejected_by_policy
+* attribution
+* bugs
+* due_diligence
+* ignored_alerts
+* in_house_libraries
+* inventory
+* license_compatibility
+* resolved_alerts
+* request_history
+* source_files
+* source_file_inventory
+* vulnerability
+
+## SAST Clean up
+If you need to run a clean up script for your SAST environment, please refer to the Mend SAST clean up kit in the [Mend Toolkit](https://github.com/mend-toolkit/mend-examples/tree/main/Scripts/Mend%20SAST) 
 **note:** The optimal cleanup scope is derived from the size of the environment, Mend scope size (memory and CPU) allocated for the server, and runtime time constraints.    
+
+
