@@ -21,7 +21,7 @@
 - **Linux (Bash):**	CentOS, Debian, Ubuntu, RedHat
 - **Windows (PowerShell):**	10, 2012, 2016
 
-## Pre-requisites
+## Pre-requisites 
 * Python 3.8+
 
 ## Permissions
