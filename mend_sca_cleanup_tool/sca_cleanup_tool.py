@@ -8,7 +8,7 @@ import uuid
 from datetime import timedelta, datetime
 from distutils.util import strtobool
 from configparser import ConfigParser
-from _version import __description__, __tool_name__, __version__
+from mend_sca_cleanup_tool._version import __description__, __tool_name__, __version__
 
 
 ATTRIBUTION = "attribution"
