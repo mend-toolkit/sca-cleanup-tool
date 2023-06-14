@@ -61,8 +61,8 @@ Analyze only the projects that have the specified Mend tag and keep the newest p
 
 ---
 
-Keep the last 2 weeks and analyze only the projects whose match their tag key and the tag value contains the specified regex:  
-`mend_sca_cleanup_tool -r 14 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -g <KEY>:<REGEX_VALUE>`
+Keep the last 2 weeks and analyze only the projects whose match their tag key and the tag value contains the specified value:  
+`mend_sca_cleanup_tool -r 14 -m FilterProjectsByUpdateTime -u <USER_KEY> -k <ORG_TOKEN> -v <KEY>:<VALUE>`
 
 ---
 
@@ -106,7 +106,7 @@ optional arguments:
                     Analyze only the projects whose contain the specific Mend tag (key:value)
   -v ANALYZED_PROJECT_TAG_REGEX_IN_VALUE, --AnalyzedProjectTagRegexInValue
                     Analyze only the projects whose match their tag key and the tag value contains the specified value (key:value)
-                    Note: This was originally broken in the original ws-cleanup-tool. The functionality was adjusted to work as originally written. The naming convension is a misnomer but was kept to avoid breaking existing integrations.
+                    Note: This was originally broken in the original ws-cleanup-tool. The functionality was adjusted to work as originally written. The naming convention is a misnomer but was kept to avoid breaking existing integrations.
   -r DAYS_TO_KEEP, --DaysToKeep
                     Number of days to keep in FilterProjectsByUpdateTime or number of copies in FilterProjectsByLastCreatedCopies
   -p PROJECT_PARALLELISM_LEVEL, --ProjectParallelismLevel
