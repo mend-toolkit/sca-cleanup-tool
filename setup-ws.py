@@ -7,7 +7,7 @@ setuptools.setup(
     name=mend_name,
     entry_points={
         'console_scripts': [
-            f'{mend_name}={mend_name}.cleanup_tool:main'
+            f'{mend_name}={mend_name}.{__tool_name__}:main'
         ]},
     version=__version__,
     author="Mend Professional Services",
