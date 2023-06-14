@@ -392,7 +392,7 @@ def setup_config():
     CONFIG.report_types = CONFIG.report_types if CONFIG.report_types else []
 
     if CONFIG.excluded_project_name_patterns:
-        CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns.replace(" ", "").split(',')
+        CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns
    
 
 if __name__ == "__main__":
