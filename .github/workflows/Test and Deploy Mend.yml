@@ -88,7 +88,14 @@ jobs:
           path: dist/${{ steps.set_env_vars.outputs.PYTHON_VERSION }}/${{ steps.set_env_vars.outputs.TOOL_DIR }}-${{ steps.set_env_vars.outputs.VERSION }}-py3-none-any.whl
           key: ${{ steps.set_env_vars.outputs.PYTHON_VERSION }}_${{ steps.set_env_vars.outputs.TOOL_DIR }}_${{ github.run_id }}
 
-      - name: Create Wheel Package
+      - name: Full test Time-Based
+        run: $TOOL_NAME -r 50000 -m FilterProjectsByUpdateTime -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -y true -o /tmp
+
+      - name: Full test Copy-Based
+        run: $TOOL_NAME -r 50000 -m FilterProjectsByLastCreatedCopies -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -y true -o /tmp
+
+
+      - name: Create Wheel Package - WS
         run: python setup-ws.py bdist_wheel
 
       - name: Install Wheel package - WS
@@ -96,7 +103,6 @@ jobs:
 
       - name: copy whl - WS
         run: |
-          mkdir dist/${{ steps.set_env_vars.outputs.PYTHON_VERSION }}
           cp dist/ws_cleanup_tool-${{ steps.set_env_vars.outputs.VERSION }}-py3-none-any.whl dist/${{ steps.set_env_vars.outputs.PYTHON_VERSION }}/
 
       - name: cache whl - WS
@@ -104,12 +110,6 @@ jobs:
         with:
           path: dist/${{ steps.set_env_vars.outputs.PYTHON_VERSION }}/ws_cleanup_tool-${{ steps.set_env_vars.outputs.VERSION }}-py3-none-any.whl
           key: ${{ steps.set_env_vars.outputs.PYTHON_VERSION }}_ws_cleanup_tool_${{ github.run_id }}
-
-      - name: Full test Time-Based
-        run: $TOOL_NAME -r 50000 -m FilterProjectsByUpdateTime -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -y true -o /tmp
-
-      - name: Full test Copy-Based
-        run: $TOOL_NAME -r 50000 -m FilterProjectsByLastCreatedCopies -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -y true -o /tmp
 
       - name: Full test Time-Based - WS
         run: ws_cleanup_tool -r 50000 -m FilterProjectsByUpdateTime -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -y true -o /tmp
