@@ -1,13 +1,13 @@
 import setuptools
 from mend_sca_cleanup_tool._version import __version__, __tool_name__, __description__
 
-mend_name = f"ws_cleanup_tool"
+mend_name = f"mend_{__tool_name__}"
 
 setuptools.setup(
     name=mend_name,
     entry_points={
         'console_scripts': [
-            f'{mend_name}={mend_name}.{__tool_name__}:main'
+            f'ws_cleanup_tool={mend_name}.{__tool_name__}:main'
         ]},
     version=__version__,
     author="Mend Professional Services",
