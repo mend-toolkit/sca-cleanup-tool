@@ -8,6 +8,7 @@ setuptools.setup(
     entry_points={
         'console_scripts': [
             f'{mend_name}={mend_name}.{__tool_name__}:main'
+            f'ws_cleanup_tool={mend_name}.{__tool_name__}:main'
         ]},
     version=__version__,
     author="Mend Professional Services",
