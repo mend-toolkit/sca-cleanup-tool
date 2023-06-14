@@ -1,19 +1,19 @@
 import setuptools
 from mend_sca_cleanup_tool._version import __version__, __tool_name__, __description__
 
-mend_name = f"mend_{__tool_name__}"
+mend_name = f"ws_cleanup_tool"
 
 setuptools.setup(
     name=mend_name,
     entry_points={
         'console_scripts': [
-            f'{mend_name}={mend_name}.{__tool_name__}:main'
+            f'{mend_name}={mend_name}.cleanup_tool:main'
         ]},
     version=__version__,
     author="Mend Professional Services",
     author_email="ps@whitesourcesoftware.com",
     description=__description__,
-    url=f"https://github.com/whitesource-ps/{mend_name.replace('_', '-')}",
+    url=f"https://github.com/whitesource-ps/mend-sca-cleanup-tool",
     license='LICENSE.txt',
     packages=setuptools.find_packages(),
     python_requires='>=3.7',

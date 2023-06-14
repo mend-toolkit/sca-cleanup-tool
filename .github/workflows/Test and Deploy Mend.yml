@@ -88,6 +88,9 @@ jobs:
           path: dist/${{ steps.set_env_vars.outputs.PYTHON_VERSION }}/${{ steps.set_env_vars.outputs.TOOL_DIR }}-${{ steps.set_env_vars.outputs.VERSION }}-py3-none-any.whl
           key: ${{ steps.set_env_vars.outputs.PYTHON_VERSION }}_${{ steps.set_env_vars.outputs.TOOL_DIR }}_${{ github.run_id }}
 
+      - name: Create Wheel Package
+        run: python setup-ws.py bdist_wheel
+
       - name: Install Wheel package - WS
         run: pip install dist/ws_cleanup_tool-${{ steps.set_env_vars.outputs.VERSION }}-py3-none-any.whl
 
