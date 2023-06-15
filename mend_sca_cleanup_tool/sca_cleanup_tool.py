@@ -78,7 +78,7 @@ def main():
                 else:
                     print("skipProjectDeletion flag found, skipping project deletion")
     else:
-        print(f"Dry Run found {total_projects_to_delete} project(s) to delete")
+        print(f"Dry Run found {total_projects_to_delete} project(s) to delete: {[project['name'] for projects in product_project_dict.values() for project in projects]}")
 
 def check_response_error(obj_response):
     if isinstance(obj_response, dict):
@@ -122,23 +122,19 @@ def filter_projects_by_config(projects):
         print(f"Filtering projects with name containing values {CONFIG.project_name_exclude_list}")
         for patt in CONFIG.project_name_exclude_list:
             projects_to_return = [project for project in projects_to_return for k, v in project.items() if k == "name" and patt not in v]
-        print(f"Found {len(projects_to_return)} project(s)")
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_UPDATE_TIME:
         archive_date = (datetime.utcnow() - timedelta(days=CONFIG.days_to_keep))
         print(f"Filtering projects older than: {archive_date}")
         projects_to_return = [project for project in projects_to_return if archive_date.timestamp() > datetime.strptime(project['lastUpdatedDate'],'%Y-%m-%d %H:%M:%S %z').timestamp()]
-        print(f"Found {len(projects_to_return)} project(s)")
 
     if CONFIG.analyzed_project_tag:
         print(f"Filtering projects based on project tag: {CONFIG.analyzed_project_tag}")
-        projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] if CONFIG.tag_pair[1] in project['tags'][0].get(CONFIG.tag_pair[0], '')]
-        print(f"Found {len(projects_to_return)} project(s)")
+        projects_to_return = filter_projects_by_tag_with_exact_match(projects_to_return) 
 
     if CONFIG.analyzed_project_tag_regex_in_value:
-        print(f"Filtering projects based on project tag value with regex: {CONFIG.analyzed_project_tag_regex_in_value}")
-        projects_to_return = [project for project in [get_project_tag(project) for project in projects_to_return] for k, v in project['tags'][0].items() if CONFIG.tag_pair[0] in k and any(CONFIG.tag_pair[1] in item for item in v) ]
-        print(f"Found {len(projects_to_return)} project(s)")
+        print(f"Filtering projects based on project contain tag value: {CONFIG.analyzed_project_tag_regex_in_value}")
+        projects_to_return = filter_projects_by_tag_with_contains_match(projects_to_return)
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_LAST_CREATED_COPIES:
         print(f"Filtering projects besides most recent: {CONFIG.days_to_keep}")
@@ -148,8 +144,29 @@ def filter_projects_by_config(projects):
             projects_to_return = projects_to_return[:index]
         else:
             print(f"Total: {len(projects_to_return)}. Nothing to filter")
+    print(f"{len(projects_to_return)} project(s) to remove after filtering")
     return projects_to_return
 
+def filter_projects_by_tag_with_exact_match(projects):
+    projects_to_return = []
+    for project in projects:
+        print(f"Getting tags for project {project['name']}")
+        project_tags = get_project_tags(project)
+        if CONFIG.tag_pair[1] in project_tags.get(CONFIG.tag_pair[0], ''):
+            print(f"{project['name']} has matching tag")
+            projects_to_return.append(project)
+    return projects_to_return
+
+def filter_projects_by_tag_with_contains_match(projects):
+    projects_to_return = []
+    for project in projects:
+        print(f"Getting tags for project {project['name']}")
+        project_tags = get_project_tags(project)
+        for k, v in project_tags.items():
+            if CONFIG.tag_pair[0] in k and any(CONFIG.tag_pair[1] in item for item in v):
+                print(f"{project['name']} contains tag value")
+                projects_to_return.append(project)
+    return projects_to_return
 
 def generate_reports(project):
     print(f"Generating reports for project: {project['name']}")
@@ -263,7 +280,7 @@ def get_projects(product_token):
     else:
         return [vital_Response for vital_Response in response_obj['projectVitals']]
 
-def get_project_tag(project):
+def get_project_tags(project):
     request = json.dumps({
             "requestType": "getProjectTags",
             "userKey": CONFIG.mend_user_key,
@@ -272,8 +289,7 @@ def get_project_tag(project):
     response_obj = json.loads(post_api_request(request).decode("utf-8"))
     if check_response_error(response_obj):
         exit()
-    project['tags'] = [project_tags['tags'] for project_tags in response_obj['projectTags']]
-    return project
+    return [project_tags['tags'] for project_tags in response_obj['projectTags']][0]
 
 def get_projects_to_remove():
     projects_to_remove = {}
@@ -281,9 +297,12 @@ def get_projects_to_remove():
     for product in products:
         print(f"Getting projects to remove for product: {product['productName']}")
         projects = get_projects(product['productToken'])
-        if len(projects) > 0:
+        projects_length = len(projects)
+        if projects_length:
+            print(f"Product has {projects_length} project(s)")
             filtered_projects = filter_projects_by_config(projects)
-            if len(filtered_projects) > 0:
+            filted_projects_total = len(filtered_projects)
+            if filted_projects_total > 0:
                 projects_to_remove[product['productToken']] = filtered_projects
         else:
             print(f"No projects found for product: {product['productName']}")
