@@ -150,7 +150,6 @@ def filter_projects_by_config(projects):
 def filter_projects_by_tag_with_exact_match(projects):
     projects_to_return = []
     for project in projects:
-        print(f"Getting tags for project {project['name']}")
         project_tags = get_project_tags(project)
         if CONFIG.tag_pair[1] in project_tags.get(CONFIG.tag_pair[0], ''):
             print(f"{project['name']} has matching tag")
@@ -160,7 +159,6 @@ def filter_projects_by_tag_with_exact_match(projects):
 def filter_projects_by_tag_with_contains_match(projects):
     projects_to_return = []
     for project in projects:
-        print(f"Getting tags for project {project['name']}")
         project_tags = get_project_tags(project)
         for k, v in project_tags.items():
             if CONFIG.tag_pair[0] in k and any(CONFIG.tag_pair[1] in item for item in v):
@@ -281,6 +279,7 @@ def get_projects(product_token):
         return [vital_Response for vital_Response in response_obj['projectVitals']]
 
 def get_project_tags(project):
+    print(f"Getting tags for project {project['name']}")
     request = json.dumps({
             "requestType": "getProjectTags",
             "userKey": CONFIG.mend_user_key,
