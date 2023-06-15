@@ -140,7 +140,8 @@ def filter_projects_by_config(projects):
         print(f"Filtering projects besides most recent: {CONFIG.days_to_keep}")
         if len(projects_to_return) > CONFIG.days_to_keep:
             index = len(projects_to_return) - CONFIG.days_to_keep
-            print(f"Total: {len(projects_to_return)}. Archiving first {index}")
+            print(f"Total: {len(projects_to_return)}. Removing oldest {index}")
+            projects_to_return = sorted(projects_to_return, key=lambda d: d['lastUpdatedDate'])
             projects_to_return = projects_to_return[:index]
         else:
             print(f"Total: {len(projects_to_return)}. Nothing to filter")
