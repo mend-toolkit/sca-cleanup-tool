@@ -103,9 +103,9 @@ optional arguments:
   -i INCLUDED_PRODUCT_TOKENS, --includedProductTokens
                     List of included products
   -g ANALYZED_PROJECT_TAG, --AnalyzedProjectTag
-                    Analyze only the projects whose contain the specific Mend tag (key:value)
+                    Analyze only the projects whose contain the specific Mend tag (key:value). Case sensitive.
   -v ANALYZED_PROJECT_TAG_REGEX_IN_VALUE, --AnalyzedProjectTagRegexInValue
-                    Analyze only the projects whose match their tag key and the tag value contains the specified value (key:value)
+                    Analyze only the projects whose match their tag key and the tag value contains the specified value (key:value). Case sensitive.
                     Note: This was originally broken in the original ws-cleanup-tool. The functionality was adjusted to work as originally written. The naming convention is a misnomer but was kept to avoid breaking existing integrations.
   -r DAYS_TO_KEEP, --DaysToKeep
                     Number of days to keep in FilterProjectsByUpdateTime or number of copies in FilterProjectsByLastCreatedCopies
@@ -124,7 +124,7 @@ optional arguments:
   -x EXCLUDED_PROJECT_TOKENS, --excludedProjectTokens
                     List of excluded projects
   -n EXCLUDED_PROJECT_NAME_PATTERNS, --excludedProjectNamePatterns
-                    List of excluded project name patterns                 
+                    List of excluded project name patterns (comma seperated list). Case sensitive.            
 ```
 
 ## Available reports
