@@ -4,7 +4,7 @@ from mend_sca_cleanup_tool._version import __version__, __tool_name__, __descrip
 mend_name = f"mend_{__tool_name__}"
 
 setuptools.setup(
-    name="ws_cleanup_tool_test",
+    name="ws_cleanup_tool",
     entry_points={
         'console_scripts': [
             f'ws_cleanup_tool={mend_name}.{__tool_name__}:main'
