@@ -34,7 +34,7 @@
 1. Install by executing: `pip install mend-sca-cleanup-tool`
 2. Configure the appropriate parameters either by using the command line or in `params.config`.
 3. Execute the tool (`mend_sca_cleanup_tool ...`).
-4. In order to update the tool please run pip install ws_cleanup_tool --upgrade
+4. In order to update the tool please run 'pip install ws_cleanup_tool --upgrade'
 
 ## Installation and Execution from GitHub:
 1. Download and unzip **mend-sca-cleanup-tool.zip** from the most recent tagged release.
