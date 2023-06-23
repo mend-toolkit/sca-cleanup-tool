@@ -70,7 +70,11 @@ def main():
         for product_token in product_project_dict:
             for project in product_project_dict[product_token]:
                 if not CONFIG.skip_report_generation:
-                    generate_reports(project)
+                    try:
+                        generate_reports(project)
+                    except:
+                        print(f"There was an issue with the report generation, skipping deletion for project: {project['name']}")
+                        continue
                 else:
                     print("skipReportGeneration flag found, skipping report generation")
                 if not CONFIG.skip_project_deletion:
@@ -189,7 +193,9 @@ def generate_reports(project):
             else:
                 data = get_excel_report(reports_to_generate[report], project_token)
 
-            check_response_error(data)
+            generation_failed = check_response_error(data)
+            if generation_failed:
+                raise Exception(f"Failed to generate report: {report}") 
             report = open(output_dir + report + '.' + reportFormat, "wb")
             report.write(data)
             report.close()
