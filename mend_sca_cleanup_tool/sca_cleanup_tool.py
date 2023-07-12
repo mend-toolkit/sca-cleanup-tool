@@ -20,8 +20,6 @@ AGENT_INFO = {
 }
 HEADERS = {
     'Content-Type': 'application/json',
-    'agent': AGENT_INFO['agent'],
-    'agentVersion': AGENT_INFO['agentVersion'],
     'ctxId': uuid.uuid1().__str__()
 }
 IGNORED_ALERTS = "ignored_alerts"
@@ -53,6 +51,9 @@ def main():
         CONFIG = parse_config_file(sys.argv[1])
     else:
         CONFIG = parse_args()
+        
+    print(HEADERS["ctxId"])
+    print(AGENT_INFO["agentVersion"])
     
     setup_config()
 
