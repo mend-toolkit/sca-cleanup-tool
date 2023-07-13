@@ -52,9 +52,6 @@ def main():
     else:
         CONFIG = parse_args()
         
-    print(HEADERS["ctxId"])
-    print(AGENT_INFO["agentVersion"])
-    
     setup_config()
 
     MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url)
