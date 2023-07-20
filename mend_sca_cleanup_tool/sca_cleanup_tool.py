@@ -14,10 +14,12 @@ from mend_sca_cleanup_tool._version import __description__, __tool_name__, __ver
 ATTRIBUTION = "attribution"
 FILTER_PROJECTS_BY_UPDATE_TIME = "FilterProjectsByUpdateTime"
 FILTER_PROJECTS_BY_LAST_CREATED_COPIES = "FilterProjectsByLastCreatedCopies"
+AGENT_INFO = {
+    'agent': f"ps-{__tool_name__}".replace('_', '-'),
+    'agentVersion': __version__
+}
 HEADERS = {
     'Content-Type': 'application/json',
-    'agent': f"ps-{__tool_name__}".replace('_', '-'),
-    'agentVersion': __version__,
     'ctxId': uuid.uuid1().__str__()
 }
 IGNORED_ALERTS = "ignored_alerts"
@@ -49,7 +51,7 @@ def main():
         CONFIG = parse_config_file(sys.argv[1])
     else:
         CONFIG = parse_args()
-    
+        
     setup_config()
 
     MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url)
@@ -111,7 +113,8 @@ def delete_scan(product_token, project):
                 "requestType": "deleteProject",
                 "userKey": CONFIG.mend_user_key,
                 "productToken": product_token,
-                "projectToken": project['token']
+                "projectToken": project['token'],
+                "agentInfo": AGENT_INFO
             })
     response_obj = json.loads(post_api_request(request).decode("utf-8"))
     if check_response_error(response_obj):
@@ -209,7 +212,8 @@ def get_alerts_report(request_type, project_token, alertType):
         "userKey": CONFIG.mend_user_key,
         "projectToken": project_token,
         "status": alertType,
-        "format": "xlsx"
+        "format": "xlsx",
+        "agentInfo": AGENT_INFO
     })
     return post_api_request(request)
 
@@ -218,7 +222,8 @@ def get_alerts_by_type(request_type, project_token, alertType):
         "requestType": request_type,
         "userKey": CONFIG.mend_user_key,
         "projectToken": project_token,
-        "alertType": alertType
+        "alertType": alertType,
+        "agentInfo": AGENT_INFO
     })
     return post_api_request(request)
 
@@ -228,7 +233,8 @@ def get_attribution_report(project_token):
         "userKey": CONFIG.mend_user_key,
         "projectToken": project_token,
         "reportingAggregationMode": "BY_PROJECT",
-        "exportFormat": "html"
+        "exportFormat": "html",
+        "agentInfo": AGENT_INFO
     })
     return post_api_request(request)
 
@@ -242,7 +248,8 @@ def get_excel_report(request_type, project_token):
         "requestType": request_type,
         "userKey": CONFIG.mend_user_key,
         "projectToken": project_token,
-        "format": "xlsx"
+        "format": "xlsx",
+        "agentInfo": AGENT_INFO
     })
     return post_api_request(request)
 
@@ -264,6 +271,7 @@ def get_products():
         "requestType": "getAllProducts",
         "userKey": CONFIG.mend_user_key,
         "orgToken": CONFIG.mend_api_token,
+        "agentInfo": AGENT_INFO
     })
     response_obj = json.loads(post_api_request(request).decode("utf-8"))
     if check_response_error(response_obj):
@@ -278,6 +286,7 @@ def get_projects(product_token):
         "requestType": "getProductProjectVitals",
         "userKey": CONFIG.mend_user_key,
         "productToken": product_token,
+        "agentInfo": AGENT_INFO
     })
     response_obj = json.loads(post_api_request(request).decode("utf-8"))
     if check_response_error(response_obj):
@@ -288,10 +297,11 @@ def get_projects(product_token):
 def get_project_tags(project):
     print(f"Getting tags for project {project['name']}")
     request = json.dumps({
-            "requestType": "getProjectTags",
-            "userKey": CONFIG.mend_user_key,
-            "projectToken": project['token'],
-        })
+        "requestType": "getProjectTags",
+        "userKey": CONFIG.mend_user_key,
+        "projectToken": project['token'],
+        "agentInfo": AGENT_INFO
+    })
     response_obj = json.loads(post_api_request(request).decode("utf-8"))
     if check_response_error(response_obj):
         exit()
