@@ -13,7 +13,7 @@ setuptools.setup(
     author="Mend Professional Services",
     author_email="ps@whitesourcesoftware.com",
     description=__description__,
-    url=f"https://github.com/whitesource-ps/{mend_name.replace('_', '-')}",
+    url=f"https://github.com/mend-toolkit/{mend_name.replace('_', '-')}",
     license='LICENSE.txt',
     packages=setuptools.find_packages(),
     python_requires='>=3.7',
