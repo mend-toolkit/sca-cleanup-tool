@@ -374,15 +374,23 @@ def parse_config_file(filepath):
         print(f"No configuration file found at: {filepath}")
         exit()
 
+
 def post_api_request(request):
     try:
         MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
         return MAIN_API_CONNECTION.getresponse().read()
-    except:
-        sys.exit(f"There was an issue calling the Mend API with URL: {CONFIG.mend_url}")
+    except http.client.HTTPException as err:
+        print(f"HTTP Exception: {err}")
+    except ConnectionError as err:
+        print(f"Connection Error: {err}")
+    except Exception as err:
+        print(f"Host: {MAIN_API_CONNECTION.host}")
+        sys.exit(f"There was an issue calling the Mend API with URL: {CONFIG.mend_url}. Details {err}")
+
 
 def remove_invalid_chars(string_to_clean):
     return re.sub('[:*<>/"?|.]', '-', string_to_clean).replace("\\", "-")
+
 
 def setup_config():
     if not CONFIG.mend_user_key:
