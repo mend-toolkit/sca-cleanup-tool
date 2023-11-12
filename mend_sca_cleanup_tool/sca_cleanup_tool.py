@@ -8,6 +8,8 @@ import uuid
 from datetime import timedelta, datetime
 from distutils.util import strtobool
 from configparser import ConfigParser
+from urllib.parse import urlparse
+import requests
 from mend_sca_cleanup_tool._version import __description__, __tool_name__, __version__
 
 
@@ -54,7 +56,19 @@ def main():
         
     setup_config()
 
-    MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url)
+    if CONFIG.proxy_host and CONFIG.proxy_port:
+        MAIN_API_CONNECTION = http.client.HTTPConnection(CONFIG.proxy_host, CONFIG.proxy_port)
+        #MAIN_API_CONNECTION.putrequest('CONNECT', CONFIG.mend_url)
+        #MAIN_API_CONNECTION.putheader('Host', CONFIG.mend_url)
+        #MAIN_API_CONNECTION.endheaders()
+        MAIN_API_CONNECTION.set_tunnel(CONFIG.mend_url)
+        #response = MAIN_API_CONNECTION.getresponse()
+        if MAIN_API_CONNECTION._tunnel_host:
+            print(f"Tunnel set successfully to {CONFIG.mend_url}")
+        else:
+            print("Failed to set tunnel")
+    else:
+        MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url)
 
     if CONFIG.dry_run:
         print("Dry Run enabled - no reports or deletions will occur")
@@ -86,6 +100,7 @@ def main():
     else:
         print(f"Dry Run found {total_projects_to_delete} project(s) to delete: {[project['name'] for projects in product_project_dict.values() for project in projects]}")
 
+
 def check_response_error(obj_response):
     if isinstance(obj_response, dict):
         if "errorMessage" in obj_response:
@@ -93,6 +108,7 @@ def check_response_error(obj_response):
             return True
         else:
             return False
+
 
 def create_output_directory(product_name, project_name):
     product_name = remove_invalid_chars(product_name)
@@ -107,6 +123,7 @@ def create_output_directory(product_name, project_name):
         os.makedirs(output_dir)
     return output_dir
 
+
 def delete_scan(product_token, project):
     print(f"Deleting project: {project['name']}")
     request = json.dumps({
@@ -116,9 +133,14 @@ def delete_scan(product_token, project):
                 "projectToken": project['token'],
                 "agentInfo": AGENT_INFO
             })
-    response_obj = json.loads(post_api_request(request).decode("utf-8"))
+    r = post_api_request(request)
+    try:
+        response_obj = json.loads(r.decode("utf-8"))
+    except:
+        response_obj = json.loads(r)
     if check_response_error(response_obj):
         return
+
 
 def filter_projects_by_config(projects):
     projects_to_return = [project for project in projects if project['token'] not in CONFIG.excluded_project_tokens]
@@ -155,6 +177,7 @@ def filter_projects_by_config(projects):
     print(f"{len(projects_to_return)} project(s) to remove after filtering")
     return projects_to_return
 
+
 def filter_projects_by_tag_with_exact_match(projects):
     projects_to_return = []
     for project in projects:
@@ -163,6 +186,7 @@ def filter_projects_by_tag_with_exact_match(projects):
             print(f"{project['name']} has matching tag")
             projects_to_return.append(project)
     return projects_to_return
+
 
 def filter_projects_by_tag_with_contains_match(projects):
     projects_to_return = []
@@ -173,6 +197,7 @@ def filter_projects_by_tag_with_contains_match(projects):
                 print(f"{project['name']} contains tag value")
                 projects_to_return.append(project)
     return projects_to_return
+
 
 def generate_reports(project):
     print(f"Generating reports for project: {project['name']}")
@@ -273,13 +298,18 @@ def get_products():
         "orgToken": CONFIG.mend_api_token,
         "agentInfo": AGENT_INFO
     })
-    response_obj = json.loads(post_api_request(request).decode("utf-8"))
+    r = post_api_request(request)
+    try:
+        response_obj = json.loads(r.decode("utf-8"))
+    except:
+        response_obj = json.loads(r)
     if check_response_error(response_obj):
         exit()
     if len(CONFIG.included_product_tokens) == 0:
         return [product for product in response_obj['products'] if product['productToken'] not in CONFIG.excluded_product_tokens]
     else:
         return [product for product in response_obj['products'] if product['productToken'] in CONFIG.included_product_tokens and product['productToken'] not in CONFIG.excluded_product_tokens]
+
 
 def get_projects(product_token):
     request = json.dumps({
@@ -288,7 +318,11 @@ def get_projects(product_token):
         "productToken": product_token,
         "agentInfo": AGENT_INFO
     })
-    response_obj = json.loads(post_api_request(request).decode("utf-8"))
+    r = post_api_request(request)
+    try:
+        response_obj = json.loads(r.decode("utf-8"))
+    except:
+        response_obj = json.loads(r)
     if check_response_error(response_obj):
         exit()
     else:
@@ -302,7 +336,11 @@ def get_project_tags(project):
         "projectToken": project['token'],
         "agentInfo": AGENT_INFO
     })
-    response_obj = json.loads(post_api_request(request).decode("utf-8"))
+    r = post_api_request(request)
+    try:
+        response_obj = json.loads(r.decode("utf-8"))
+    except:
+        response_obj = json.loads(r)
     if check_response_error(response_obj):
         exit()
     return [project_tags['tags'] for project_tags in response_obj['projectTags']][0]
@@ -324,6 +362,7 @@ def get_projects_to_remove():
             print(f"No projects found for product: {product['productName']}")
     return projects_to_remove
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Mend SCA Clean up tool")
     parser.add_argument('-a', '--mendURL', '--wsURL', help="Mend URL", dest='mend_url', default="saas.whitesourcesoftware.com")
@@ -344,7 +383,9 @@ def parse_args():
     parser.add_argument('-v', '--analyzedProjectTagRegexInValue', help="Analyze only the projects whose match their tag key and the tag value contains the specified regex (key:value). Case sensitive. Note: This was originally broken in the original ws-cleanup-tool. The functionality was adjusted to work as originally written. The naming convention is a misnomer but was kept to avoid breaking existing integrations.", dest='analyzed_project_tag_regex_in_value')
     parser.add_argument('-x', '--excludedProjectTokens', help="Excluded Project Tokens (comma seperated list)", dest='excluded_project_tokens')
     parser.add_argument('-y', '--dryRun', help="Whether to run the tool without performing anything", dest='dry_run', type=strtobool, default=False)
+    parser.add_argument('-pr', '--proxy', help="Proxy URL", dest='proxy', type=str, default='')
     return parser.parse_args()
+
 
 def parse_config_file(filepath):
     if os.path.exists(filepath):
@@ -368,7 +409,8 @@ def parse_config_file(filepath):
                     project_parallelism_level=config['DEFAULT'].get('ProjectParallelismLevel', 5),
                     dry_run=config['DEFAULT'].getboolean("DryRun", False),
                     skip_report_generation=config['DEFAULT'].getboolean("SkipReportGeneration", False),
-                    skip_project_deletion=config['DEFAULT'].getboolean("SkipProjectDeletion", False)
+                    skip_project_deletion=config['DEFAULT'].getboolean("SkipProjectDeletion", False),
+                    proxy=config['DEFAULT'].getboolean("proxy", '')
                 )
     else:
         print(f"No configuration file found at: {filepath}")
@@ -377,15 +419,27 @@ def parse_config_file(filepath):
 
 def post_api_request(request):
     try:
-        MAIN_API_CONNECTION.request("POST", '/api/v1.4', request, HEADERS)
+        MAIN_API_CONNECTION.request("POST", f'/api/v1.4', request, HEADERS)
         return MAIN_API_CONNECTION.getresponse().read()
-    except http.client.HTTPException as err:
-        print(f"HTTP Exception: {err}")
-    except ConnectionError as err:
-        print(f"Connection Error: {err}")
     except Exception as err:
         print(f"Host: {MAIN_API_CONNECTION.host}")
-        sys.exit(f"There was an issue calling the Mend API with URL: {CONFIG.mend_url}. Details {err}")
+        r = call_api(header=HEADERS, data=request)
+        return r
+        #sys.exit(f"There was an issue calling the Mend API with URL: {CONFIG.mend_url}. Details {err}")
+
+
+def call_api(header, data, method="POST"):
+    res = ""
+    try:
+        res = requests.request(
+            method=method,
+            url=f"https://{CONFIG.mend_url}/api/v1.4",
+            data=data,
+            headers=header,
+            ).text
+    except Exception as err:
+        sys.exit(f'Exception was raised: {err}')
+    return res
 
 
 def remove_invalid_chars(string_to_clean):
@@ -436,7 +490,10 @@ def setup_config():
 
     if CONFIG.excluded_project_name_patterns:
         CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns
-   
+
+    CONFIG.proxy_host = urlparse(CONFIG.proxy).hostname if CONFIG.proxy else ''
+    CONFIG.proxy_port = urlparse(CONFIG.proxy).port if CONFIG.proxy else ''
+
 
 if __name__ == "__main__":
     main()
