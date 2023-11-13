@@ -251,7 +251,7 @@ def get_alerts_by_type(request_type, project_token, alertType):
         "alertType": alertType,
         "agentInfo": AGENT_INFO
     })
-    return post_api_request(request)
+    return post_api_request(request, report=True)
 
 
 def get_attribution_report(project_token):
@@ -333,6 +333,7 @@ def get_projects(product_token):
     else:
         return [vital_Response for vital_Response in response_obj['projectVitals']]
 
+
 def get_project_tags(project):
     print(f"Getting tags for project {project['name']}")
     request = json.dumps({
@@ -349,6 +350,7 @@ def get_project_tags(project):
     if check_response_error(response_obj):
         exit()
     return [project_tags['tags'] for project_tags in response_obj['projectTags']][0]
+
 
 def get_projects_to_remove():
     projects_to_remove = {}
