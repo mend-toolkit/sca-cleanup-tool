@@ -240,7 +240,8 @@ def get_alerts_report(request_type, project_token, alertType):
         "format": "xlsx",
         "agentInfo": AGENT_INFO
     })
-    return post_api_request(request)
+    return post_api_request(request, report=True)
+
 
 def get_alerts_by_type(request_type, project_token, alertType):
     request = json.dumps({
@@ -252,6 +253,7 @@ def get_alerts_by_type(request_type, project_token, alertType):
     })
     return post_api_request(request)
 
+
 def get_attribution_report(project_token):
     request = json.dumps({
         "requestType": REPORTS[ATTRIBUTION],
@@ -261,12 +263,14 @@ def get_attribution_report(project_token):
         "exportFormat": "html",
         "agentInfo": AGENT_INFO
     })
-    return post_api_request(request)
+    return post_api_request(request, report=True)
+
 
 def get_config_file_value(config_val, default):
         if isinstance(config_val, int):
             return config_val if config_val is not None else default
         return config_val if config_val else default
+
 
 def get_excel_report(request_type, project_token):
     request = json.dumps({
@@ -276,7 +280,8 @@ def get_excel_report(request_type, project_token):
         "format": "xlsx",
         "agentInfo": AGENT_INFO
     })
-    return post_api_request(request)
+    return post_api_request(request, report=True)
+
 
 def get_reports_to_generate():
     if len(CONFIG.report_types) == 0:
@@ -417,25 +422,35 @@ def parse_config_file(filepath):
         exit()
 
 
-def post_api_request(request):
+def post_api_request(request, report = False):
     try:
+        #  Using Http request, this code here just for testing requests API call
+        #r = call_api(header=HEADERS, data=request, report=report)
+        #return r
         MAIN_API_CONNECTION.request("POST", f'/api/v1.4', request, HEADERS)
         return MAIN_API_CONNECTION.getresponse().read()
     except Exception as err:
         print(f"Host: {MAIN_API_CONNECTION.host}")
-        r = call_api(header=HEADERS, data=request)
+        r = call_api(header=HEADERS, data=request, report=report)
         return r
-        #sys.exit(f"There was an issue calling the Mend API with URL: {CONFIG.mend_url}. Details {err}")
 
 
-def call_api(header, data, method="POST"):
+def call_api(header, data, method="POST", report = False):
     res = ""
     try:
-        res = requests.request(
-            method=method,
-            url=f"https://{CONFIG.mend_url}/api/v1.4",
-            data=data,
-            headers=header,
+        if report:
+            res = requests.request(
+                method=method,
+                url=f"https://{CONFIG.mend_url}/api/v1.4",
+                data=data,
+                headers=header,
+                ).content
+        else:
+            res = requests.request(
+                method=method,
+                url=f"https://{CONFIG.mend_url}/api/v1.4",
+                data=data,
+                headers=header,
             ).text
     except Exception as err:
         sys.exit(f'Exception was raised: {err}')
