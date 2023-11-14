@@ -208,7 +208,7 @@ def generate_reports(project):
                 data = get_excel_report(reports_to_generate[report], project_token)
 
             generation_failed = check_response_error(data)
-            if generation_failed:
+            if generation_failed or not data:
                 raise Exception(f"Failed to generate report: {report}") 
             report = open(output_dir + report + '.' + reportFormat, "wb")
             report.write(data)
