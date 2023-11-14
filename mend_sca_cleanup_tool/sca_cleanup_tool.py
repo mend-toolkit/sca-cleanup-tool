@@ -1,4 +1,3 @@
-import http.client
 import json
 import sys
 import argparse
@@ -8,9 +7,8 @@ import uuid
 from datetime import timedelta, datetime
 from distutils.util import strtobool
 from configparser import ConfigParser
-from urllib.parse import urlparse
 import requests
-from mend_sca_cleanup_tool._version import __description__, __tool_name__, __version__
+from mend_sca_cleanup_tool._version import __tool_name__, __version__
 
 
 ATTRIBUTION = "attribution"
@@ -43,10 +41,19 @@ REPORTS = {
            "source_file_inventory": "getProjectSourceFileInventoryReport",
            "vulnerability": "getProjectVulnerabilityReport"
            }
+API_VER = "/api/v1.4"
+CONFIG = None
+
+
+def try_or_error(supplier, msg):
+    try:
+        return supplier()
+    except:
+        return msg
+
 
 def main():
     global CONFIG
-    global MAIN_API_CONNECTION
     if len(sys.argv) == 1:
         CONFIG = parse_config_file("params.config")
     elif not sys.argv[1].startswith('-'):
@@ -56,26 +63,10 @@ def main():
         
     setup_config()
 
-    if CONFIG.proxy_host and CONFIG.proxy_port:
-        MAIN_API_CONNECTION = http.client.HTTPConnection(CONFIG.proxy_host, CONFIG.proxy_port)
-        #MAIN_API_CONNECTION.putrequest('CONNECT', CONFIG.mend_url)
-        #MAIN_API_CONNECTION.putheader('Host', CONFIG.mend_url)
-        #MAIN_API_CONNECTION.endheaders()
-        MAIN_API_CONNECTION.set_tunnel(CONFIG.mend_url)
-        #response = MAIN_API_CONNECTION.getresponse()
-        if MAIN_API_CONNECTION._tunnel_host:
-            print(f"Tunnel set successfully to {CONFIG.mend_url}")
-        else:
-            print("Failed to set tunnel")
-    else:
-        MAIN_API_CONNECTION = http.client.HTTPSConnection(CONFIG.mend_url)
-
     if CONFIG.dry_run:
         print("Dry Run enabled - no reports or deletions will occur")
 
     product_project_dict = get_projects_to_remove()
-
-
     total_projects_to_delete = (sum([len(product_project_dict[x]) for x in product_project_dict]))
     if not CONFIG.dry_run:
         if total_projects_to_delete == 0:
@@ -133,13 +124,8 @@ def delete_scan(product_token, project):
                 "projectToken": project['token'],
                 "agentInfo": AGENT_INFO
             })
-    r = post_api_request(request)
-    try:
-        response_obj = json.loads(r.decode("utf-8"))
-    except:
-        response_obj = json.loads(r)
-    if check_response_error(response_obj):
-        return
+    response_obj = try_or_error(lambda: json.loads(call_api(data=request)), {})
+    check_response_error(response_obj)
 
 
 def filter_projects_by_config(projects):
@@ -240,7 +226,7 @@ def get_alerts_report(request_type, project_token, alertType):
         "format": "xlsx",
         "agentInfo": AGENT_INFO
     })
-    return post_api_request(request, report=True)
+    return try_or_error(lambda: call_api(data=request, report=True), bytes())
 
 
 def get_alerts_by_type(request_type, project_token, alertType):
@@ -251,7 +237,7 @@ def get_alerts_by_type(request_type, project_token, alertType):
         "alertType": alertType,
         "agentInfo": AGENT_INFO
     })
-    return post_api_request(request, report=True)
+    return try_or_error(lambda: call_api(data=request, report=True), bytes())
 
 
 def get_attribution_report(project_token):
@@ -263,7 +249,7 @@ def get_attribution_report(project_token):
         "exportFormat": "html",
         "agentInfo": AGENT_INFO
     })
-    return post_api_request(request, report=True)
+    return try_or_error(lambda: call_api(data=request, report=True), bytes())
 
 
 def get_config_file_value(config_val, default):
@@ -280,7 +266,7 @@ def get_excel_report(request_type, project_token):
         "format": "xlsx",
         "agentInfo": AGENT_INFO
     })
-    return post_api_request(request, report=True)
+    return try_or_error(lambda: call_api(data=request, report=True), bytes())
 
 
 def get_reports_to_generate():
@@ -303,11 +289,7 @@ def get_products():
         "orgToken": CONFIG.mend_api_token,
         "agentInfo": AGENT_INFO
     })
-    r = post_api_request(request)
-    try:
-        response_obj = json.loads(r.decode("utf-8"))
-    except:
-        response_obj = json.loads(r)
+    response_obj = try_or_error(lambda: json.loads(call_api(data=request)), [])
     if check_response_error(response_obj):
         exit()
     if len(CONFIG.included_product_tokens) == 0:
@@ -323,11 +305,7 @@ def get_projects(product_token):
         "productToken": product_token,
         "agentInfo": AGENT_INFO
     })
-    r = post_api_request(request)
-    try:
-        response_obj = json.loads(r.decode("utf-8"))
-    except:
-        response_obj = json.loads(r)
+    response_obj = try_or_error(lambda: json.loads(call_api(data=request)), [])
     if check_response_error(response_obj):
         exit()
     else:
@@ -342,11 +320,7 @@ def get_project_tags(project):
         "projectToken": project['token'],
         "agentInfo": AGENT_INFO
     })
-    r = post_api_request(request)
-    try:
-        response_obj = json.loads(r.decode("utf-8"))
-    except:
-        response_obj = json.loads(r)
+    response_obj = try_or_error(lambda: json.loads(call_api(data=request)), [])
     if check_response_error(response_obj):
         exit()
     return [project_tags['tags'] for project_tags in response_obj['projectTags']][0]
@@ -390,7 +364,6 @@ def parse_args():
     parser.add_argument('-v', '--analyzedProjectTagRegexInValue', help="Analyze only the projects whose match their tag key and the tag value contains the specified regex (key:value). Case sensitive. Note: This was originally broken in the original ws-cleanup-tool. The functionality was adjusted to work as originally written. The naming convention is a misnomer but was kept to avoid breaking existing integrations.", dest='analyzed_project_tag_regex_in_value')
     parser.add_argument('-x', '--excludedProjectTokens', help="Excluded Project Tokens (comma seperated list)", dest='excluded_project_tokens')
     parser.add_argument('-y', '--dryRun', help="Whether to run the tool without performing anything", dest='dry_run', type=strtobool, default=False)
-    parser.add_argument('-pr', '--proxy', help="Proxy URL", dest='proxy', type=str, default='')
     return parser.parse_args()
 
 
@@ -417,43 +390,23 @@ def parse_config_file(filepath):
                     dry_run=config['DEFAULT'].getboolean("DryRun", False),
                     skip_report_generation=config['DEFAULT'].getboolean("SkipReportGeneration", False),
                     skip_project_deletion=config['DEFAULT'].getboolean("SkipProjectDeletion", False),
-                    proxy=config['DEFAULT'].getboolean("proxy", '')
                 )
     else:
         print(f"No configuration file found at: {filepath}")
         exit()
 
 
-def post_api_request(request, report = False):
+def call_api(data, header=None, method="POST", report=False):
+    if header is None:
+        header = HEADERS
     try:
-        #  Using Http request, this code here just for testing requests API call
-        #r = call_api(header=HEADERS, data=request, report=report)
-        #return r
-        MAIN_API_CONNECTION.request("POST", f'/api/v1.4', request, HEADERS)
-        return MAIN_API_CONNECTION.getresponse().read()
-    except Exception as err:
-        print(f"Host: {MAIN_API_CONNECTION.host}")
-        r = call_api(header=HEADERS, data=request, report=report)
-        return r
-
-
-def call_api(header, data, method="POST", report = False):
-    res = ""
-    try:
-        if report:
-            res = requests.request(
-                method=method,
-                url=f"https://{CONFIG.mend_url}/api/v1.4",
-                data=data,
-                headers=header,
-                ).content
-        else:
-            res = requests.request(
-                method=method,
-                url=f"https://{CONFIG.mend_url}/api/v1.4",
-                data=data,
-                headers=header,
-            ).text
+        res_request = requests.request(
+            method=method,
+            url=f"https://{CONFIG.mend_url}{API_VER}",
+            data=data,
+            headers=header,
+            )
+        res = res_request.content if report else res_request.text
     except Exception as err:
         sys.exit(f'Exception was raised: {err}')
     return res
@@ -507,9 +460,6 @@ def setup_config():
 
     if CONFIG.excluded_project_name_patterns:
         CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns
-
-    CONFIG.proxy_host = urlparse(CONFIG.proxy).hostname if CONFIG.proxy else ''
-    CONFIG.proxy_port = urlparse(CONFIG.proxy).port if CONFIG.proxy else ''
 
 
 if __name__ == "__main__":
