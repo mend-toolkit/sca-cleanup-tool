@@ -382,7 +382,7 @@ def parse_config_file(filepath):
                     project_parallelism_level=config['DEFAULT'].get('ProjectParallelismLevel', 5),
                     dry_run=config['DEFAULT'].getboolean("DryRun", False),
                     skip_report_generation=config['DEFAULT'].getboolean("SkipReportGeneration", False),
-                    skip_project_deletion=config['DEFAULT'].getboolean("SkipProjectDeletion", False),
+                    skip_project_deletion=config['DEFAULT'].getboolean("SkipProjectDeletion", False)
                 )
     else:
         print(f"No configuration file found at: {filepath}")
