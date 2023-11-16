@@ -45,13 +45,6 @@ API_VER = "/api/v1.4"
 CONFIG = None
 
 
-def try_or_error(supplier, msg):
-    try:
-        return supplier()
-    except:
-        return msg
-
-
 def main():
     global CONFIG
     if len(sys.argv) == 1:
@@ -124,7 +117,7 @@ def delete_scan(product_token, project):
                 "projectToken": project['token'],
                 "agentInfo": AGENT_INFO
             })
-    response_obj = try_or_error(lambda: json.loads(call_api(data=request)), {})
+    response_obj = json.loads(call_api(data=request))
     check_response_error(response_obj)
 
 
@@ -208,7 +201,7 @@ def generate_reports(project):
                 data = get_excel_report(reports_to_generate[report], project_token)
 
             generation_failed = check_response_error(data)
-            if generation_failed or not data:
+            if generation_failed:
                 raise Exception(f"Failed to generate report: {report}") 
             report = open(output_dir + report + '.' + reportFormat, "wb")
             report.write(data)
@@ -226,7 +219,7 @@ def get_alerts_report(request_type, project_token, alertType):
         "format": "xlsx",
         "agentInfo": AGENT_INFO
     })
-    return try_or_error(lambda: call_api(data=request, report=True), bytes())
+    return call_api(data=request, report=True)
 
 
 def get_alerts_by_type(request_type, project_token, alertType):
@@ -237,7 +230,7 @@ def get_alerts_by_type(request_type, project_token, alertType):
         "alertType": alertType,
         "agentInfo": AGENT_INFO
     })
-    return try_or_error(lambda: call_api(data=request, report=True), bytes())
+    return call_api(data=request, report=True)
 
 
 def get_attribution_report(project_token):
@@ -249,7 +242,7 @@ def get_attribution_report(project_token):
         "exportFormat": "html",
         "agentInfo": AGENT_INFO
     })
-    return try_or_error(lambda: call_api(data=request, report=True), bytes())
+    return call_api(data=request, report=True)
 
 
 def get_config_file_value(config_val, default):
@@ -266,7 +259,7 @@ def get_excel_report(request_type, project_token):
         "format": "xlsx",
         "agentInfo": AGENT_INFO
     })
-    return try_or_error(lambda: call_api(data=request, report=True), bytes())
+    return call_api(data=request, report=True)
 
 
 def get_reports_to_generate():
@@ -289,7 +282,7 @@ def get_products():
         "orgToken": CONFIG.mend_api_token,
         "agentInfo": AGENT_INFO
     })
-    response_obj = try_or_error(lambda: json.loads(call_api(data=request)), [])
+    response_obj = json.loads(call_api(data=request))
     if check_response_error(response_obj):
         exit()
     if len(CONFIG.included_product_tokens) == 0:
@@ -305,7 +298,7 @@ def get_projects(product_token):
         "productToken": product_token,
         "agentInfo": AGENT_INFO
     })
-    response_obj = try_or_error(lambda: json.loads(call_api(data=request)), [])
+    response_obj = json.loads(call_api(data=request))
     if check_response_error(response_obj):
         exit()
     else:
@@ -320,7 +313,7 @@ def get_project_tags(project):
         "projectToken": project['token'],
         "agentInfo": AGENT_INFO
     })
-    response_obj = try_or_error(lambda: json.loads(call_api(data=request)), [])
+    response_obj = json.loads(call_api(data=request))
     if check_response_error(response_obj):
         exit()
     return [project_tags['tags'] for project_tags in response_obj['projectTags']][0]
