@@ -82,7 +82,10 @@ def main():
                 else:
                     print("skipProjectDeletion flag found, skipping project deletion")
     else:
-        print(f"Dry Run found {total_projects_to_delete} project(s) to delete: {[project['name'] for projects in product_project_dict.values() for project in projects]}")
+        print(f"Dry Run found {total_projects_to_delete} project(s) to delete:")
+        for product_token in product_project_dict:
+            for project in product_project_dict[product_token]:
+                print(f"{project['productName']} --> {project['name']}")
 
 
 def check_response_error(obj_response):
