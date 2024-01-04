@@ -81,8 +81,8 @@ Keep the last month for both PRODUCT_1 and PRODUCT_2, but do not delete projects
 
 ## Full Usage flags:
 ```shell
-usage: ws_cleanup_tool [-h] -u MEND_USER_KEY -k MEND_TOKEN [-a MEND_URL] [-t REPORT_TYPES] [-m {FilterProjectsByUpdateTime,FilterProjectsByLastCreatedCopies}] [-o OUTPUT_DIR] [-e EXCLUDED_PRODUCT_TOKENS] [-i INCLUDED_PRODUCT_TOKENS]
-                    [-g ANALYZED_PROJECT_TAG] [-r DAYS_TO_KEEP] [-p PROJECT_PARALLELISM_LEVEL] [-y DRY_RUN]
+usage: mend_sca_cleanup_tool [-h] -u MEND_USER_KEY -k MEND_TOKEN [-a MEND_URL] [-t REPORT_TYPES] [-m {FilterProjectsByUpdateTime,FilterProjectsByLastCreatedCopies}] [-o OUTPUT_DIR] [-e EXCLUDED_PRODUCT_TOKENS] [-i INCLUDED_PRODUCT_TOKENS]
+                    [-g ANALYZED_PROJECT_TAG] [-r DAYS_TO_KEEP] [-p PROJECT_PARALLELISM_LEVEL] [-y DRY_RUN] [-pr ProxyUrl]
 
 Mend Cleanup Tool
 
@@ -126,7 +126,13 @@ optional arguments:
   -x EXCLUDED_PROJECT_TOKENS, --excludedProjectTokens
                     List of excluded projects
   -n EXCLUDED_PROJECT_NAME_PATTERNS, --excludedProjectNamePatterns
-                    List of excluded project name patterns (comma seperated list). Case sensitive.            
+                    List of excluded project name patterns (comma seperated list). Case sensitive.    
+  -pr ProxyUrl, --proxy
+                    The proxy URL. It should be provided in a format like this: < proxy_ip>:<proxy_port>.
+                    In case of a proxy requires Basic Authentication 
+                    the format should be like this <proxy_username>:<proxy_password>@<proxy_ip>:<proxy_port>.
+                    If http:// or https:// prefix is not provided, the prefix http:// will be used by default.
+                          
 ```
 
 ## Available reports
