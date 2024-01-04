@@ -1,15 +1,17 @@
-import json
-import sys
 import argparse
-import re
+import json
 import os
+import re
+import sys
 import uuid
+from configparser import ConfigParser
 from datetime import timedelta, datetime
 from distutils.util import strtobool
-from configparser import ConfigParser
-import requests
-from mend_sca_cleanup_tool._version import __tool_name__, __version__
 
+import requests
+import warnings
+from mend_sca_cleanup_tool._version import __tool_name__, __version__
+from urllib3.exceptions import InsecureRequestWarning
 
 ATTRIBUTION = "attribution"
 FILTER_PROJECTS_BY_UPDATE_TIME = "FilterProjectsByUpdateTime"
@@ -22,6 +24,7 @@ HEADERS = {
     'Content-Type': 'application/json',
     'ctxId': uuid.uuid1().__str__()
 }
+WARNING_MSG = False
 IGNORED_ALERTS = "ignored_alerts"
 RESOLVED_ALERTS = "resolved_alerts"
 REJECTED_BY_POLICY = "alerts_rejected_by_policy"
@@ -393,20 +396,32 @@ def parse_config_file(filepath):
 
 
 def call_api(data, header=None, method="POST", report=False):
+    global WARNING_MSG
     if header is None:
         header = HEADERS
     try:
-        proxy = {"https": CONFIG.proxy} if "https://" in CONFIG.proxy else {"http": CONFIG.proxy} if CONFIG.proxy else {}
-        res_request = requests.request(
-            method=method,
-            url=f"https://{CONFIG.mend_url}{API_VER}",
-            data=data,
-            headers=header,
-            proxies=proxy
-            )
-        res = res_request.content if report else res_request.text
+        proxy = {"https": CONFIG.proxy, "http": CONFIG.proxy} if CONFIG.proxy else {}
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.simplefilter("always", InsecureRequestWarning)
+            res_request = requests.request(
+                method=method,
+                url=f"https://{CONFIG.mend_url}{API_VER}",
+                data=data,
+                headers=header,
+                proxies=proxy,
+                verify=False
+                )
+            res = res_request.content if report else res_request.text
     except Exception as err:
         sys.exit(f'Exception was raised: {err}')
+
+    if not WARNING_MSG:
+        for warning in warning_list:
+            if issubclass(warning.category, InsecureRequestWarning):
+                index_of_see = str(warning.message).find("See:")
+                print(f"Warning: {str(warning.message)[:index_of_see].strip()}")
+                WARNING_MSG = True
+
     return res
 
 
