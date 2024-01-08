@@ -426,7 +426,7 @@ def call_api(data, header=None, method="POST", report=False):
 
 
 def remove_invalid_chars(string_to_clean):
-    return re.sub('[:*<>/"?|]', '-', string_to_clean).replace("\\", "-")  # The "." is valid char
+    return re.sub('[:*<>/"?|]', '-', string_to_clean).replace("\\", "-")
 
 
 def setup_config():
