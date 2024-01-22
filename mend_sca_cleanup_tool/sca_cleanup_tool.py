@@ -156,6 +156,7 @@ def filter_projects_by_config(projects):
             projects_to_return = sorted(projects_to_return, key=lambda d: d['lastUpdatedDate'])
             projects_to_return = projects_to_return[:index]
         else:
+            projects_to_return = []
             print(f"Total: {len(projects_to_return)}. Nothing to filter")
     print(f"{len(projects_to_return)} project(s) to remove after filtering")
     return projects_to_return
