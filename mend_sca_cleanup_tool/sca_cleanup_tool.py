@@ -1,15 +1,17 @@
-import json
-import sys
 import argparse
-import re
+import json
 import os
+import re
+import sys
 import uuid
+from configparser import ConfigParser
 from datetime import timedelta, datetime
 from distutils.util import strtobool
-from configparser import ConfigParser
-import requests
-from mend_sca_cleanup_tool._version import __tool_name__, __version__
 
+import requests
+import warnings
+from mend_sca_cleanup_tool._version import __tool_name__, __version__
+from urllib3.exceptions import InsecureRequestWarning
 
 ATTRIBUTION = "attribution"
 FILTER_PROJECTS_BY_UPDATE_TIME = "FilterProjectsByUpdateTime"
@@ -22,6 +24,7 @@ HEADERS = {
     'Content-Type': 'application/json',
     'ctxId': uuid.uuid1().__str__()
 }
+WARNING_MSG = False
 IGNORED_ALERTS = "ignored_alerts"
 RESOLVED_ALERTS = "resolved_alerts"
 REJECTED_BY_POLICY = "alerts_rejected_by_policy"
@@ -100,9 +103,10 @@ def check_response_error(obj_response):
 def create_output_directory(product_name, project_name):
     product_name = remove_invalid_chars(product_name)
     project_name = remove_invalid_chars(project_name)
-    if not CONFIG.output_dir.endswith("\\"):
-        CONFIG.output_dir = CONFIG.output_dir + "\\"
-    output_dir = CONFIG.output_dir + product_name + "\\" + project_name + "\\"
+    CONFIG.output_dir = CONFIG.output_dir.replace("\\","/")
+    if not CONFIG.output_dir.endswith("/"):
+        CONFIG.output_dir = CONFIG.output_dir + "/"
+    output_dir = CONFIG.output_dir + product_name + "/" + project_name + "/"
     if len(output_dir) > 180:
         output_dir = (output_dir[:180] + "..")
     if not os.path.exists(output_dir):
@@ -351,7 +355,7 @@ def parse_args():
     parser.add_argument('-m', '--operationMode', help="Clean up operation method", dest='operation_mode', default=FILTER_PROJECTS_BY_UPDATE_TIME,
                                 choices=[s for s in [FILTER_PROJECTS_BY_UPDATE_TIME, FILTER_PROJECTS_BY_LAST_CREATED_COPIES]])
     parser.add_argument('-n', '--excludedProjectNamePatterns', help="List of excluded project name patterns (comma seperated list). Case sensitive.", dest='excluded_project_name_patterns')
-    parser.add_argument('-o', '--outputDir', help="Output directory", dest='output_dir', default=os.getcwd() + "\\Mend\\Reports\\")
+    parser.add_argument('-o', '--outputDir', help="Output directory", dest='output_dir', default=os.getcwd() + "/Mend/Reports/")
     parser.add_argument('-p', '--projectParallelismLevel', help="Project parallelism level directory Note: This is currently not used in this version of the mend-sca-cleanup-tool", dest='project_parallelism_level')
     parser.add_argument('-r', '--daysToKeep', help="Number of days to keep (overridden by --dateToKeep)", dest='days_to_keep', type=int, default=50000)
     parser.add_argument('-s', '--skipReportGeneration', help="Skip Report Generation", dest='skip_report_generation', type=strtobool, default=False)
@@ -360,6 +364,7 @@ def parse_args():
     parser.add_argument('-v', '--analyzedProjectTagRegexInValue', help="Analyze only the projects whose match their tag key and the tag value contains the specified regex (key:value). Case sensitive. Note: This was originally broken in the original ws-cleanup-tool. The functionality was adjusted to work as originally written. The naming convention is a misnomer but was kept to avoid breaking existing integrations.", dest='analyzed_project_tag_regex_in_value')
     parser.add_argument('-x', '--excludedProjectTokens', help="Excluded Project Tokens (comma seperated list)", dest='excluded_project_tokens')
     parser.add_argument('-y', '--dryRun', help="Whether to run the tool without performing anything", dest='dry_run', type=strtobool, default=False)
+    parser.add_argument('-pr', '--proxy', help="Proxy URL", dest='proxy', default="")
     return parser.parse_args()
 
 
@@ -374,7 +379,7 @@ def parse_config_file(filepath):
                     mend_url=get_config_file_value(config['DEFAULT'].get("MendUrl", config['DEFAULT'].get("WsUrl")), os.environ.get("WS_URL")),
                     report_types=get_config_file_value(config['DEFAULT'].get('ReportTypes'), os.environ.get("REPORT_TYPES")),
                     operation_mode=get_config_file_value(config['DEFAULT'].get("OperationMode"), FILTER_PROJECTS_BY_UPDATE_TIME),
-                    output_dir=get_config_file_value(config['DEFAULT'].get('OutputDir'), os.getcwd() + "\\Mend\\Reports\\"),
+                    output_dir=get_config_file_value(config['DEFAULT'].get('OutputDir'), os.getcwd() + "/Mend/Reports/"),
                     excluded_product_tokens=get_config_file_value(config['DEFAULT'].get("ExcludedProductTokens", []), os.environ.get("EXCLUDED_PRODUCT_TOKENS")),
                     included_product_tokens=get_config_file_value(config['DEFAULT'].get("IncludedProductTokens", []), os.environ.get("INCLUDED_PRODUCT_TOKENS")),
                     excluded_project_tokens=get_config_file_value(config['DEFAULT'].get("ExcludedProjectTokens", []), os.environ.get("EXCLUDED_PROJECT_TOKENS")),
@@ -385,7 +390,8 @@ def parse_config_file(filepath):
                     project_parallelism_level=config['DEFAULT'].get('ProjectParallelismLevel', 5),
                     dry_run=config['DEFAULT'].getboolean("DryRun", False),
                     skip_report_generation=config['DEFAULT'].getboolean("SkipReportGeneration", False),
-                    skip_project_deletion=config['DEFAULT'].getboolean("SkipProjectDeletion", False)
+                    skip_project_deletion=config['DEFAULT'].getboolean("SkipProjectDeletion", False),
+                    proxy=get_config_file_value(config['DEFAULT'].get("ProxyUrl"),"")
                 )
     else:
         print(f"No configuration file found at: {filepath}")
@@ -393,23 +399,37 @@ def parse_config_file(filepath):
 
 
 def call_api(data, header=None, method="POST", report=False):
+    global WARNING_MSG
     if header is None:
         header = HEADERS
     try:
-        res_request = requests.request(
-            method=method,
-            url=f"https://{CONFIG.mend_url}{API_VER}",
-            data=data,
-            headers=header,
-            )
-        res = res_request.content if report else res_request.text
+        proxy = {"https": CONFIG.proxy, "http": CONFIG.proxy} if CONFIG.proxy else {}
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.simplefilter("always", InsecureRequestWarning)
+            res_request = requests.request(
+                method=method,
+                url=f"https://{CONFIG.mend_url}{API_VER}",
+                data=data,
+                headers=header,
+                proxies=proxy,
+                verify=False
+                )
+            res = res_request.content if report else res_request.text
     except Exception as err:
         sys.exit(f'Exception was raised: {err}')
+
+    if not WARNING_MSG:
+        for warning in warning_list:
+            if issubclass(warning.category, InsecureRequestWarning):
+                index_of_see = str(warning.message).find("See:")
+                print(f"Warning: {str(warning.message)[:index_of_see].strip()}")
+                WARNING_MSG = True
+
     return res
 
 
 def remove_invalid_chars(string_to_clean):
-    return re.sub('[:*<>/"?|.]', '-', string_to_clean).replace("\\", "-")
+    return re.sub('[:*<>/"?|]', '-', string_to_clean).replace("\\", "-")
 
 
 def setup_config():
@@ -456,6 +476,13 @@ def setup_config():
 
     if CONFIG.excluded_project_name_patterns:
         CONFIG.project_name_exclude_list = CONFIG.excluded_project_name_patterns
+
+    if CONFIG.proxy:
+        if "http://" not in CONFIG.proxy and "https://" not in CONFIG.proxy:
+            CONFIG.proxy = f'http://{CONFIG.proxy}'
+        if CONFIG.proxy.count(":") < 2:
+            print("The proxy URL was provided but not defined correctly. The right format is <proxy_ip>:<proxy_port>")
+            exit()
 
 
 if __name__ == "__main__":

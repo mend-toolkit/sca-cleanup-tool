@@ -35,7 +35,7 @@ jobs:
           if [[ ${{strategy.job-index}} == 0 ]]; then
             echo "MIN_PY_VER=${{ matrix.python-version }}" >> $GITHUB_OUTPUT
           fi
-          echo "VERSION=0.0.0.ci0" >> $GITHUB_OUTPUT
+          echo "VERSION=0.0.0.dev0" >> $GITHUB_OUTPUT
           echo "RELEASE=false" >> $GITHUB_OUTPUT
           echo "TOOL_DIR=${{env.TOOL_NAME}}" >> $GITHUB_OUTPUT
           if [[ "$GITHUB_REF" == *"refs/tags/v"* || "$GITHUB_REF" == *"refs/tags/test-v"* ]]; then
@@ -68,8 +68,6 @@ jobs:
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-      - name: Unittest
-        run: python -m unittest
 
       - name: Create Wheel Package
         run: python setup.py bdist_wheel
@@ -116,42 +114,10 @@ jobs:
       - name: Full test Copy-Based - WS
         run: ws_cleanup_tool -r 50000 -m FilterProjectsByLastCreatedCopies -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -y true -o /tmp
 
-  publish-feature:
-    if: startsWith(github.ref, 'refs/heads/feature')
-    needs: [build-and-test]
-    runs-on: ubuntu-latest
 
-    steps:
-      - name: Get Environment Variables
-        id: get_env_vars
-        run: |
-          echo "MIN_PY_VER=${{ needs.build-and-test.outputs.min_py_ver }}" >> $GITHUB_ENV
-          echo "APP_PWD=${{ needs.build-and-test.outputs.app_pwd }}" >> $GITHUB_ENV
-          echo "APP_DIR=${{ needs.build-and-test.outputs.app_dir }}" >> $GITHUB_ENV
-          echo "VERSION=${{ needs.build-and-test.outputs.version }}" >> $GITHUB_ENV
-          echo "WHL_NAME=${{ needs.build-and-test.outputs.whl_name }}" >> $GITHUB_ENV
-          echo "SOURCE_BRANCH=${{ needs.build-and-test.outputs.source_branch }}" >> $GITHUB_ENV
-
-      - name: Restore whl
-        id: restore_whl
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.APP_PWD }}/dist/${{ env.MIN_PY_VER }}/${{ env.WHL_NAME }}
-          key: ${{ env.MIN_PY_VER }}_${{ env.APP_DIR }}_${{ github.run_id }}
-
-      - name: Publish to TestPyPI
-        id: publish_to_test_pypi
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          skip-existing: false
-          user: __token__
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-          packages-dir: dist/${{ needs.build-and-test.outputs.min_py_ver }}
-          repository-url: https://test.pypi.org/legacy/
-          print-hash: true
 
   publish:
-    if: ${{ startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/staging'}}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     needs: [build-and-test]
     runs-on: ubuntu-latest
     steps:
@@ -165,24 +131,6 @@ jobs:
         with:
           path: dist/${{needs.build-and-test.outputs.min_py_ver}}/ws_cleanup_tool-${{needs.build-and-test.outputs.version}}-py3-none-any.whl
           key: ${{needs.build-and-test.outputs.min_py_ver}}_ws_cleanup_tool_${{ github.run_id }}
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-1
-
-      - name: Upload to S3 bucket
-        run: |
-          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M")
-          aws s3 cp dist/${{needs.build-and-test.outputs.min_py_ver}}/${{needs.build-and-test.outputs.tool_dir}}-${{needs.build-and-test.outputs.version}}-py3-none-any.whl s3://mend-ps-staging/${{needs.build-and-test.outputs.tool_dir}}/"$TIMESTAMP"_${{ env.TOOL_NAME }}.whl
-          aws s3api put-object-tagging --bucket mend-ps-staging --key ${{needs.build-and-test.outputs.tool_dir}}/"$TIMESTAMP"_${{ env.TOOL_NAME }}.whl --tagging "{\"TagSet\": [{\"Key\": \"User\", \"Value\": \"${{ env.GIT_USER}}\"},{\"Key\": \"Branch\", \"Value\": \"${{needs.build-and-test.outputs.source_branch}}\"},{\"Key\": \"CommitId\", \"Value\": \"${{env.COMMIT_ID}}\"}]}"
-      
-      - name: Upload to S3 bucket - WS
-        run: |
-          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M")
-          aws s3 cp dist/${{needs.build-and-test.outputs.min_py_ver}}/ws_cleanup_tool-${{needs.build-and-test.outputs.version}}-py3-none-any.whl s3://mend-ps-staging/ws_cleanup_tool/"$TIMESTAMP"_ws_cleanup_tool.whl
-          aws s3api put-object-tagging --bucket mend-ps-staging --key ws_cleanup_tool/"$TIMESTAMP"_ws_cleanup_tool.whl --tagging "{\"TagSet\": [{\"Key\": \"User\", \"Value\": \"${{ env.GIT_USER}}\"},{\"Key\": \"Branch\", \"Value\": \"${{needs.build-and-test.outputs.source_branch}}\"},{\"Key\": \"CommitId\", \"Value\": \"${{env.COMMIT_ID}}\"}]}"
       - name: Publish to PyPI
         if: startsWith(github.ref, 'refs/tags/v')
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -201,23 +149,3 @@ jobs:
           artifacts: dist/${{needs.build-and-test.outputs.min_py_ver}}/${{needs.build-and-test.outputs.tool_dir}}-${{needs.build-and-test.outputs.version}}-py3-none-any.whl
           prerelease: ${{ needs.build-and-test.outputs.release != 'true' }}
           generateReleaseNotes: true
-
-      - name: Publish to Confluence - Public
-        if: ${{ env.RELEASE == 'true' }}
-        uses: cupcakearmy/confluence-markdown-sync@v1     
-        with: 
-          from: README.md
-          to: 2225406280
-          cloud: whitesource
-          user: ${{ secrets.CONFLUENCE_USER }}
-          token: ${{ secrets.CONFLUENCE_TOKEN }}
-
-      - name: Publish to Confluence - Internal
-        if: ${{ env.RELEASE == 'true' }}
-        uses: cupcakearmy/confluence-markdown-sync@v1     
-        with: 
-          from: README.md
-          to: 2313290370
-          cloud: whitesource
-          user: ${{ secrets.CONFLUENCE_USER }}
-          token: ${{ secrets.CONFLUENCE_TOKEN }}

@@ -1,0 +1,6 @@
+{
+  "settingsInheritedFrom": "mend-toolkit/whitesource-config@main",
+    "scanSettings": {
+        "configMode": "LOCAL"
+    }
+}
