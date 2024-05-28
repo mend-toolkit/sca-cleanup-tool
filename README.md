@@ -6,9 +6,8 @@
 
 # Mend SCA Projects Cleanup CLI Tool
 > [!WARNING]  
-> The following project was created for, and should be used with the Legacy Mend Platform (as opposed to the new Mend Unified Platform). As such, using this tool could remove empty projects on the Mend SCA Platform that are being used to store data for other SAST or Container scans. Removing those projects could result in broken scans and information not being published to Mend correctly.  
+> The following project was created for, and should be used with the Legacy Mend SCA Platform (as opposed to the new Mend Unified Platform or Cloud Native). The Mend Unified Platform and Cloud Native creates empty projects on the Legacy Mend SCA Platform to store SAST and Cloud Native scans. Removing those projects could result in broken scans and information not being published to Mend correctly. If you are using Cloud Native or the Mend Unified Platform - It is recommended to run this tool in Dry Run mode and verify the projects to be deleted do not have SAST or Cloud Native scans prior to deletion.  
 
-* Current version v23.7.1
 * The self-hosted CLI tool features cleaning up projects and generating reports before deletion in 2 modes:
   * By stating _OperationMode=FilterProjectsByUpdateTime_ and how many days to keep (-r/ DaysToKeep=)
   * By stating _OperationMode=FilterProjectsByLastCreatedCopies_ and how many copies to keep (-r/ DaysToKeep=)
