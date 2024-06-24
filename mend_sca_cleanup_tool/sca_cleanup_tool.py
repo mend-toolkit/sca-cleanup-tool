@@ -69,7 +69,7 @@ def main():
 
     processed_projects = {}
     products = get_products()
-    with ThreadPoolExecutor(max_workers=CONFIG.project_parallelism_level) as executor:  # Adjust max_workers as needed
+    with ThreadPoolExecutor(max_workers=CONFIG.project_parallelism_level) as executor:
             futures = []
             for product in products:
                 futures.append(executor.submit(process_product, product))
@@ -427,7 +427,7 @@ def process_product(product):
                         continue
                 if not CONFIG.skip_project_deletion:
                     print(f"{product_name} - deleting project {project['name']}")
-                    #delete_scan(product_token, project)
+                    delete_scan(product_token, project)
                     print(f"{product_name} - project deleted {project['name']}")
             for project in errored_projects:
                 filtered_projects.remove(project)
