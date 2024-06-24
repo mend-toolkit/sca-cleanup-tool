@@ -427,7 +427,7 @@ def process_product(product):
                         continue
                 if not CONFIG.skip_project_deletion:
                     print(f"{product_name} - deleting project {project['name']}")
-                    delete_scan(product_token, project)
+                    delete_scan(product['productToken'], project)
                     print(f"{product_name} - project deleted {project['name']}")
             for project in errored_projects:
                 filtered_projects.remove(project)
