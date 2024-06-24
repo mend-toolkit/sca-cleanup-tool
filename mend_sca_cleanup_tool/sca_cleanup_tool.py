@@ -374,7 +374,7 @@ def parse_args():
     parser.add_argument('-x', '--excludedProjectTokens', help="Excluded Project Tokens (comma seperated list)", dest='excluded_project_tokens')
     parser.add_argument('-y', '--dryRun', help="Whether to run the tool without performing anything", dest='dry_run', type=strtobool, default=False)
     parser.add_argument('-pr', '--proxy', help="Proxy URL", dest='proxy', default="")
-    parser.add_argument('-ss', '--skipSummary', help="skips the summary of deleted projects at end of report. Recommended if processing a lot of projects", dest='skip_summary', default=False)
+    parser.add_argument('-ss', '--skipSummary', help="Skips the summary of deleted projects at end of report. Recommended if processing a lot of projects", dest='skip_summary', default=False)
     return parser.parse_args()
 
 
