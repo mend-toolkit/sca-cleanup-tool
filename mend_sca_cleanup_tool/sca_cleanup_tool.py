@@ -69,7 +69,7 @@ def main():
 
     processed_projects = {}
     products = get_products()
-    with ThreadPoolExecutor(max_workers=CONFIG.project_parallelism_level) as executor:
+    with ThreadPoolExecutor(max_workers=int(CONFIG.project_parallelism_level)) as executor:
             futures = []
             for product in products:
                 futures.append(executor.submit(process_product, product))
@@ -401,7 +401,8 @@ def parse_config_file(filepath):
                     dry_run=config['DEFAULT'].getboolean("DryRun", False),
                     skip_report_generation=config['DEFAULT'].getboolean("SkipReportGeneration", False),
                     skip_project_deletion=config['DEFAULT'].getboolean("SkipProjectDeletion", False),
-                    proxy=get_config_file_value(config['DEFAULT'].get("ProxyUrl"),"")
+                    proxy=get_config_file_value(config['DEFAULT'].get("ProxyUrl"),""),
+                    skip_summary=get_config_file_value(config['DEFAULT'].get("SkipSummary"),False)
                 )
     else:
         print(f"No configuration file found at: {filepath}")
