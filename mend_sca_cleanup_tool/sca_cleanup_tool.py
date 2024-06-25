@@ -7,6 +7,7 @@ import uuid
 from configparser import ConfigParser
 from datetime import timedelta, datetime
 from distutils.util import strtobool
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 import warnings
@@ -58,35 +59,63 @@ def main():
         CONFIG = parse_args()
         
     setup_config()
+    if CONFIG.skip_report_generation:
+        print("Skip Report Generation Enabled - Reports will not be generated")
+    if CONFIG.skip_project_deletion:
+        print("Skip Project Deletion Enabled - Projects will not be deleted")
 
     if CONFIG.dry_run:
         print("Dry Run enabled - no reports or deletions will occur")
 
-    product_project_dict = get_projects_to_remove()
-    total_projects_to_delete = (sum([len(product_project_dict[x]) for x in product_project_dict]))
-    if not CONFIG.dry_run:
-        if total_projects_to_delete == 0:
-            print("No projects to clean up were found")
-            exit()
-        else:
-            print(f"Found {total_projects_to_delete} project(s) to delete, generating reports and removing project(s)...")
-        for product_token in product_project_dict:
-            for project in product_project_dict[product_token]:
-                if not CONFIG.skip_report_generation:
-                    try:
-                        generate_reports(project)
-                    except:
-                        print(f"There was an issue with the report generation, skipping deletion for project: {project['name']}")
-                        continue
-                else:
-                    print("skipReportGeneration flag found, skipping report generation")
-                if not CONFIG.skip_project_deletion:
-                    delete_scan(product_token, project)
-                else:
-                    print("skipProjectDeletion flag found, skipping project deletion")
+    processed_projects = {}
+    products = get_products()
+    with ThreadPoolExecutor(max_workers=int(CONFIG.project_parallelism_level)) as executor:
+            futures = []
+            for product in products:
+                futures.append(executor.submit(process_product, product))
+                
+            for future in as_completed(futures):
+                processed_projects.update(future.result())
+    total_projects_to_delete = (sum([len(processed_projects[x]) for x in processed_projects]))   
+    if total_projects_to_delete == 0:
+        print("No projects to clean up were found")
+        exit()
+    elif CONFIG.dry_run:
+        print(f"Dry Run found {total_projects_to_delete} project(s) to delete")   
     else:
-        print(f"Dry Run found {total_projects_to_delete} project(s) to delete: {[project['name'] for projects in product_project_dict.values() for project in projects]}")
+        print(f"Deleted {total_projects_to_delete} project(s)")
+    if not CONFIG.skip_summary:
+        for product_name in processed_projects:
+            print(f"  {product_name}: {[project['name'] for project in processed_projects[product_name]]}")
 
+def call_api(data, header=None, method="POST", report=False):
+    global WARNING_MSG
+    if header is None:
+        header = HEADERS
+    try:
+        proxy = {"https": CONFIG.proxy, "http": CONFIG.proxy} if CONFIG.proxy else {}
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.simplefilter("always", InsecureRequestWarning)
+            res_request = requests.request(
+                method=method,
+                url=f"https://{CONFIG.mend_url}{API_VER}",
+                data=data,
+                headers=header,
+                proxies=proxy,
+                verify=False
+                )
+            res = res_request.content if report else res_request.text
+    except Exception as err:
+        sys.exit(f'Exception was raised: {err}')
+
+    if not WARNING_MSG:
+        for warning in warning_list:
+            if issubclass(warning.category, InsecureRequestWarning):
+                index_of_see = str(warning.message).find("See:")
+                print(f"Warning: {str(warning.message)[:index_of_see].strip()}")
+                WARNING_MSG = True
+
+    return res
 
 def check_response_error(obj_response):
     if isinstance(obj_response, dict):
@@ -113,7 +142,7 @@ def create_output_directory(product_name, project_name):
 
 
 def delete_scan(product_token, project):
-    print(f"Deleting project: {project['name']}")
+    print(f"{project['productName']} - Deleting project: {project['name']}")
     request = json.dumps({
                 "requestType": "deleteProject",
                 "userKey": CONFIG.mend_user_key,
@@ -125,40 +154,40 @@ def delete_scan(product_token, project):
     check_response_error(response_obj)
 
 
-def filter_projects_by_config(projects):
+def filter_projects_by_config(projects, product_name):
     projects_to_return = [project for project in projects if project['token'] not in CONFIG.excluded_project_tokens]
     if len(projects_to_return) == 0:
         return []
 
     if CONFIG.excluded_project_name_patterns:
-        print(f"Filtering projects with name containing values {CONFIG.project_name_exclude_list}")
+        print(f"{product_name} - Filtering projects with name containing values {CONFIG.project_name_exclude_list}")
         for patt in CONFIG.project_name_exclude_list:
             projects_to_return = [project for project in projects_to_return for k, v in project.items() if k == "name" and patt not in v]
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_UPDATE_TIME:
         archive_date = (datetime.utcnow() - timedelta(days=CONFIG.days_to_keep))
-        print(f"Filtering projects older than: {archive_date}")
+        print(f"{product_name} - Filtering projects older than: {archive_date}")
         projects_to_return = [project for project in projects_to_return if archive_date.timestamp() > datetime.strptime(project['lastUpdatedDate'],'%Y-%m-%d %H:%M:%S %z').timestamp()]
 
     if CONFIG.analyzed_project_tag:
-        print(f"Filtering projects based on project tag: {CONFIG.analyzed_project_tag}")
+        print(f"{product_name} - Filtering projects based on project tag: {CONFIG.analyzed_project_tag}")
         projects_to_return = filter_projects_by_tag_with_exact_match(projects_to_return) 
 
     if CONFIG.analyzed_project_tag_regex_in_value:
-        print(f"Filtering projects based on project contain tag value: {CONFIG.analyzed_project_tag_regex_in_value}")
+        print(f"{product_name} - Filtering projects based on project contain tag value: {CONFIG.analyzed_project_tag_regex_in_value}")
         projects_to_return = filter_projects_by_tag_with_contains_match(projects_to_return)
 
     if CONFIG.operation_mode == FILTER_PROJECTS_BY_LAST_CREATED_COPIES:
-        print(f"Filtering projects besides most recent: {CONFIG.days_to_keep}")
+        print(f"{product_name} - Filtering projects besides most recent: {CONFIG.days_to_keep}")
         if len(projects_to_return) > CONFIG.days_to_keep:
             index = len(projects_to_return) - CONFIG.days_to_keep
-            print(f"Total: {len(projects_to_return)}. Removing oldest {index}")
+            print(f"{product_name} - Total Projects: {len(projects_to_return)}. Removing oldest {index}")
             projects_to_return = sorted(projects_to_return, key=lambda d: d['lastUpdatedDate'])
             projects_to_return = projects_to_return[:index]
         else:
+            print(f"{product_name} - Total Projects: {len(projects_to_return)}. Nothing to filter")
             projects_to_return = []
-            print(f"Total: {len(projects_to_return)}. Nothing to filter")
-    print(f"{len(projects_to_return)} project(s) to remove after filtering")
+    print(f"{product_name} - {len(projects_to_return)} project(s) to remove after filtering")
     return projects_to_return
 
 
@@ -184,13 +213,14 @@ def filter_projects_by_tag_with_contains_match(projects):
 
 
 def generate_reports(project):
-    print(f"Generating reports for project: {project['name']}")
+    product_name = project['productName']
+    print(f"{product_name} - Generating reports for project: {project['name']}")
     project_token = project['token']
     reports_to_generate = get_reports_to_generate()
     if len(reports_to_generate) > 0:
         output_dir = create_output_directory(project['productName'], project['name'])
         for report in reports_to_generate.keys():
-            print(f"Generating {report} report for project {project['name']}")
+            print(f"{product_name} - Generating {report} report for project {project['name']}")
             reportFormat = 'xlsx'
             if report.lower() == ATTRIBUTION:
                 data = get_attribution_report(project_token)
@@ -207,12 +237,12 @@ def generate_reports(project):
 
             generation_failed = check_response_error(data)
             if generation_failed:
-                raise Exception(f"Failed to generate report: {report}") 
+                raise Exception(f"{product_name} - Failed to generate report: {report}") 
             report = open(output_dir + report + '.' + reportFormat, "wb")
             report.write(data)
             report.close()
     else:
-        print("No reports to generate")
+        print(f"{product_name} - No reports to generate")
 
 
 def get_alerts_report(request_type, project_token, alertType):
@@ -323,25 +353,6 @@ def get_project_tags(project):
         exit()
     return [project_tags['tags'] for project_tags in response_obj['projectTags']][0]
 
-
-def get_projects_to_remove():
-    projects_to_remove = {}
-    products = get_products()
-    for product in products:
-        print(f"Getting projects to remove for product: {product['productName']}")
-        projects = get_projects(product['productToken'])
-        projects_length = len(projects)
-        if projects_length:
-            print(f"Product has {projects_length} project(s)")
-            filtered_projects = filter_projects_by_config(projects)
-            filted_projects_total = len(filtered_projects)
-            if filted_projects_total > 0:
-                projects_to_remove[product['productToken']] = filtered_projects
-        else:
-            print(f"No projects found for product: {product['productName']}")
-    return projects_to_remove
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Mend SCA Clean up tool")
     parser.add_argument('-a', '--mendURL', '--wsURL', help="Mend URL", dest='mend_url', default="saas.whitesourcesoftware.com")
@@ -354,7 +365,7 @@ def parse_args():
                                 choices=[s for s in [FILTER_PROJECTS_BY_UPDATE_TIME, FILTER_PROJECTS_BY_LAST_CREATED_COPIES]])
     parser.add_argument('-n', '--excludedProjectNamePatterns', help="List of excluded project name patterns (comma seperated list). Case sensitive.", dest='excluded_project_name_patterns')
     parser.add_argument('-o', '--outputDir', help="Output directory", dest='output_dir', default=os.getcwd() + "/Mend/Reports/")
-    parser.add_argument('-p', '--projectParallelismLevel', help="Project parallelism level directory Note: This is currently not used in this version of the mend-sca-cleanup-tool", dest='project_parallelism_level')
+    parser.add_argument('-p', '--projectParallelismLevel', help="Maximum number of threads to run", dest='project_parallelism_level', default=5)
     parser.add_argument('-r', '--daysToKeep', help="Number of days to keep (overridden by --dateToKeep)", dest='days_to_keep', type=int, default=50000)
     parser.add_argument('-s', '--skipReportGeneration', help="Skip Report Generation", dest='skip_report_generation', type=strtobool, default=False)
     parser.add_argument('-t', '--reportTypes', help="Report Types to generate (comma seperated list)", dest='report_types')
@@ -363,6 +374,7 @@ def parse_args():
     parser.add_argument('-x', '--excludedProjectTokens', help="Excluded Project Tokens (comma seperated list)", dest='excluded_project_tokens')
     parser.add_argument('-y', '--dryRun', help="Whether to run the tool without performing anything", dest='dry_run', type=strtobool, default=False)
     parser.add_argument('-pr', '--proxy', help="Proxy URL", dest='proxy', default="")
+    parser.add_argument('-ss', '--skipSummary', help="Skips the summary of deleted projects at end of report. Recommended if processing a lot of projects", dest='skip_summary', default=False)
     return parser.parse_args()
 
 
@@ -389,41 +401,41 @@ def parse_config_file(filepath):
                     dry_run=config['DEFAULT'].getboolean("DryRun", False),
                     skip_report_generation=config['DEFAULT'].getboolean("SkipReportGeneration", False),
                     skip_project_deletion=config['DEFAULT'].getboolean("SkipProjectDeletion", False),
-                    proxy=get_config_file_value(config['DEFAULT'].get("ProxyUrl"),"")
+                    proxy=get_config_file_value(config['DEFAULT'].get("ProxyUrl"),""),
+                    skip_summary=get_config_file_value(config['DEFAULT'].get("SkipSummary"),False)
                 )
     else:
         print(f"No configuration file found at: {filepath}")
         exit()
 
-
-def call_api(data, header=None, method="POST", report=False):
-    global WARNING_MSG
-    if header is None:
-        header = HEADERS
-    try:
-        proxy = {"https": CONFIG.proxy, "http": CONFIG.proxy} if CONFIG.proxy else {}
-        with warnings.catch_warnings(record=True) as warning_list:
-            warnings.simplefilter("always", InsecureRequestWarning)
-            res_request = requests.request(
-                method=method,
-                url=f"https://{CONFIG.mend_url}{API_VER}",
-                data=data,
-                headers=header,
-                proxies=proxy,
-                verify=False
-                )
-            res = res_request.content if report else res_request.text
-    except Exception as err:
-        sys.exit(f'Exception was raised: {err}')
-
-    if not WARNING_MSG:
-        for warning in warning_list:
-            if issubclass(warning.category, InsecureRequestWarning):
-                index_of_see = str(warning.message).find("See:")
-                print(f"Warning: {str(warning.message)[:index_of_see].strip()}")
-                WARNING_MSG = True
-
-    return res
+def process_product(product):
+    product_processed_projects = {}
+    product_name = product['productName']
+    print(f"*** Getting projects to remove for product {product_name} ***")
+    projects = get_projects(product['productToken'])
+    filtered_projects = filter_projects_by_config(projects, product_name)
+    
+    if len(filtered_projects) > 0:
+        if not CONFIG.dry_run:
+            errored_projects = []
+            for project in filtered_projects:
+                if not CONFIG.skip_report_generation:
+                    try:
+                        generate_reports(project)
+                    except:
+                        print(f"{product_name} - There was an issue with the report generation, skipping deletion for project: {project['name']}")
+                        errored_projects.append(project)
+                        continue
+                if not CONFIG.skip_project_deletion:
+                    print(f"{product_name} - deleting project {project['name']}")
+                    delete_scan(product['productToken'], project)
+                    print(f"{product_name} - project deleted {project['name']}")
+            for project in errored_projects:
+                filtered_projects.remove(project)
+    else:
+        print(f"{product_name} - No projects to remove")
+    product_processed_projects[product_name]=filtered_projects
+    return product_processed_projects
 
 
 def remove_invalid_chars(string_to_clean):

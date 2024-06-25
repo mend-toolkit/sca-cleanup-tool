@@ -114,8 +114,7 @@ optional arguments:
   -r DAYS_TO_KEEP, --DaysToKeep
                     Number of days to keep in FilterProjectsByUpdateTime or number of copies in FilterProjectsByLastCreatedCopies
   -p PROJECT_PARALLELISM_LEVEL, --ProjectParallelismLevel
-                    Project parallelism level
-                    Note: This is currently not used in this version of the mend-sca-cleanup-tool. Was kept to prevent breaking existing integrations.
+                    Maximum number of threads to run
   -y DRY_RUN, --DryRun
                     Logging the projects that are supposed to be deleted without deleting and creating reports
                     default False
@@ -134,6 +133,9 @@ optional arguments:
                     In case of a proxy requires Basic Authentication 
                     the format should be like this <proxy_username>:<proxy_password>@<proxy_ip>:<proxy_port>.
                     If http:// or https:// prefix is not provided, the prefix http:// will be used by default.
+  -ss SkipSummary, --SkipSummary
+					Skips the summary of deleted projects at the end of report.
+					Recommended if processing a lot of projects.
                           
 ```
 
