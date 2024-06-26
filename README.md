@@ -81,9 +81,11 @@ Keep the last month for both PRODUCT_1 and PRODUCT_2, but do not delete projects
 ---
 
 ## Removing >5k Projects
-If attempting to a large amount of the projects, the following configuraiton is recommended:
- `mend_sca_cleanup_tool -r 5 -m FilterProjectsByLastCreatedCopies -u <USER_KEY> -k <ORG_TOKEN> -ss true -s true`
- This configuration will keep the last 5 projects in any given product, skip report generation and the summary at the end of script execution. If you wish to generate reports, it is recommended to do so for 1 product at a time using the -i parameter.
+If attempting to a large amount of the projects, the following configuraiton is recommended: 
+
+`mend_sca_cleanup_tool -r 5 -m FilterProjectsByLastCreatedCopies -u <USER_KEY> -k <ORG_TOKEN> -ss true -s true` 
+
+This configuration will keep the last 5 projects in any given product, skip report generation and the summary at the end of script execution. If you wish to generate reports, it is recommended to do so for 1 product at a time using the -i parameter.
 
 ## Full Usage flags:
 ```shell
