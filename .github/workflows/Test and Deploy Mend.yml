@@ -53,7 +53,7 @@ jobs:
         run: |
           sed -E -i  "s/^__version__ = \"[a-z0-9\.]+\"/__version__ = \"${{steps.set_env_vars.outputs.VERSION}}\"/g"  ${{ steps.set_env_vars.outputs.TOOL_DIR }}/_version.py
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
