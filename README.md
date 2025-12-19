@@ -6,7 +6,7 @@
 
 # Mend SCA Projects Cleanup CLI Tool
 > [!WARNING]  
-> The following project was created for, and should be used with the Legacy Mend User Interface. The Mend Unified Platform and Cloud Native creates empty projects on the Legacy Mend User Interface to store SAST and Cloud Native scans. Removing those projects could result in broken scans and information not being published to Mend correctly. If you are using Cloud Native or the Mend Unified Platform - It is recommended to run this tool in Dry Run mode and verify the projects to be deleted do not have SAST or Cloud Native scans prior to deletion.  
+> This repository has been deprecated, as a new Clean Up tool has been created for the Mend Platform to handle the growing Mend Technologies. We will not be making any changes or enhancements to this repository. Please use the new repository [project-cleanup-tool](https://github.com/mend-toolkit/project-cleanup-tool)
 
 * The self-hosted CLI tool features cleaning up projects and generating reports before deletion in 2 modes:
   * By stating _OperationMode=FilterProjectsByUpdateTime_ and how many days to keep (-r/ DaysToKeep=)
@@ -33,14 +33,17 @@
 * It is recommended to use a service user.
 
 ## Installation and Execution from PyPi (recommended):
-1. Install by executing: `pip install mend-sca-cleanup-tool`
+1. Install by executing: `pip install mend-sca-cleanup-tool
+`
 2. Configure the appropriate parameters either by using the command line or in `params.config`.
 3. Execute the tool (`mend_sca_cleanup_tool ...`).
-4. In order to update the tool please run `pip install mend-sca-cleanup-tool --upgrade`
+4. In order to update the tool please run `pip install mend-sca-cleanup-tool --upgrade
+`
 
 ## Installation and Execution from GitHub:
 1. Download and unzip **mend-sca-cleanup-tool.zip** from the most recent tagged release.
-2. Install requirements: `pip install -r requirements.txt`
+2. Install requirements: `pip install -r requirements.txt
+`
 3. Configure the appropriate parameters either by using the command line or `params.config`.
 4. Execute: `python sca_cleanup_tool.py <CONFIG_FILE>` 
 
